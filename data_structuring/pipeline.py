@@ -4,11 +4,12 @@ This module provides an interface to running pipeline for address structuring.
 import logging
 import warnings
 from itertools import islice
+from typing import List
 
 from data_structuring.components.data_provider.normalization import decode_and_clean_str
 from data_structuring.components.database import Database
 from data_structuring.components.readers.base_reader import BaseReader, AddressSample
-from data_structuring.components.runners import RunnerCRF, RunnerFuzzyMatch, RunnerPostProcessing
+from data_structuring.components.runners import RunnerCRF, RunnerFuzzyMatch, RunnerPostProcessing, ResultPostProcessing
 from data_structuring.components.runners.runner_postcode_match import RunnerPostcodeMatch
 from data_structuring.config import (CRFConfig,
                                      FuzzyMatchConfig,
@@ -37,7 +38,8 @@ class AddressStructuringPipeline:
                  post_processing_config: PostProcessingConfig | None = None,
                  post_processing_town_weights_config: PostProcessingTownWeightsConfig | None = None,
                  post_processing_country_weights_config: PostProcessingCountryWeightsConfig | None = None,
-                 database_config: DatabaseConfig | None = None):
+                 database_config: DatabaseConfig | None = None,
+                 batch_size: int = 1024):
         # Save configs or fetch default values if no explicit config is given
         self._crf_config = crf_config or CRFConfig()
         self._fuzzy_match_config = fuzzy_match_config or FuzzyMatchConfig()
@@ -60,6 +62,9 @@ class AddressStructuringPipeline:
             town_weights=self._post_processing_town_weights_config,
             country_weights=self._post_processing_country_weights_config,
             database=self._database_controller)
+
+        # Batch size to use for this pipeline
+        self._batch_size = batch_size
 
     def _validate_sample(self, sample: str) -> True:
         """
@@ -100,7 +105,7 @@ class AddressStructuringPipeline:
             force_suggested_country=sample.force_suggested_country
         )
 
-    def run(self, reader: BaseReader, batch_size: int = 1024):
+    def run(self, reader: BaseReader) -> List[ResultPostProcessing]:
 
         logger = logging.getLogger(__name__)
 
@@ -109,7 +114,7 @@ class AddressStructuringPipeline:
 
         all_results = []
 
-        for batch in _batched(samples, batch_size):
+        for batch in _batched(samples, self._batch_size):
             # Extract text strings for runners that operate on raw text
             batch_texts = [sample.text for sample in batch]
 

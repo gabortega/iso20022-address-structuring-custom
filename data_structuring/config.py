@@ -4,7 +4,7 @@ import string
 from abc import ABC
 from importlib import resources
 from pathlib import Path
-from typing import Literal, Any
+from typing import Any
 
 from pydantic import field_validator, ValidationInfo, Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict, CliImplicitFlag
@@ -282,6 +282,19 @@ class RunCLIConfig(BaseSettingsISO):
     verbose: CliImplicitFlag[bool] = Field(False,
                                            description="Add details of the predictions to the output file",
                                            alias=AliasChoices('v', 'verbose'))
+
+    # Inference parameters
+    batch_size: int = 1024
+
+    logging_config: Path | None = Field(default=None,
+                                        description="Path to the logging configuration file",
+                                        alias=AliasChoices('l', 'logging_config'))
+
+
+class RunServerConfig(BaseSettingsISO):
+    # Server settings
+    hostname: str = Field(default="127.0.0.1", description="Server hostname")
+    port: int = Field(default=8080, description="Server port")
 
     # Inference parameters
     batch_size: int = 1024

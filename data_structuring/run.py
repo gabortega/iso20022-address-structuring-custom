@@ -62,9 +62,9 @@ def _cli():
 
     post_processing_config = PostProcessingConfig()
     # Create the DataStructuring object and perform inference
-    ds = AddressStructuringPipeline()
+    ds = AddressStructuringPipeline(batch_size=cli_args.batch_size)
     logger.info("Running inference on input")
-    results = ds.run(reader, batch_size=cli_args.batch_size)
+    results = ds.run(reader)
 
     if cli_args.output_data_path.suffix in (".csv", ".tsv"):
         _, saved_path = (
