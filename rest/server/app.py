@@ -10,6 +10,7 @@ from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel, Field
 from torch.backends.mkl import verbose
 
+from data_structuring.components.readers.base_reader import AddressSample
 from data_structuring.components.readers.list_reader import ListReader
 from data_structuring.config import RunServerConfig
 from data_structuring.pipeline import AddressStructuringPipeline
@@ -20,7 +21,7 @@ pipeline: AddressStructuringPipeline | None = None
 
 
 class StructureRequest(BaseModel):
-    addresses: list[str] = Field(description="List of unstructured addresses to process")
+    address_samples: list[AddressSample] = Field(description="List of unstructured addresses to process")
     num_results: int = Field(default=2, description="Number of results to return")
     verbose: bool = Field(default=False, description="Enable verbose output")
 
@@ -72,7 +73,7 @@ app = FastAPI(
 @app.post("/process_address", response_model=ProcessResponse, response_class=ORJSONResponse)
 def infer_town_country_from_address(request: StructureRequest):
     """Process a list of unstructured addresses and return the inferred town and country for each address."""
-    reader = ListReader(request.addresses)
+    reader = ListReader(request.address_samples)
     raw_results = pipeline.run(reader)
 
     results = []

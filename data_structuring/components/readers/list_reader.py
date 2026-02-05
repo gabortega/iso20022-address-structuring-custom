@@ -1,13 +1,13 @@
 from typing import Generator
 
-from data_structuring.components.readers.base_reader import BaseReader
+from data_structuring.components.readers.base_reader import BaseReader, AddressSample
 
 
 class ListReader(BaseReader):
-    def __init__(self, data: list[str]):
+    def __init__(self, data: list[AddressSample]):
         self.data = data
 
-    def read(self) -> Generator[str, None, None]:
+    def read(self) -> Generator[AddressSample, None, None]:
         """
         Yield lines one by one from an in-memory list.
         Returns:
