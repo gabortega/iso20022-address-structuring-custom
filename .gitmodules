@@ -1,0 +1,3 @@
+[submodule "resources"]
+	path = resources
+	url = https://github.com/Swift-SC/iso20022-address-structuring-resources
