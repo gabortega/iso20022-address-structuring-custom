@@ -1,3 +1,13 @@
+\##################################################################
+
+**DISCLAIMER**: This repository represents a forked implementation of the Swift Address structuring model, maintained 
+exclusively for the purpose of independent research, experimentation, and ad-hoc solution testing. The code modifications 
+contained within this repository are neither endorsed nor sanctioned by Swift in any capacity. This software is provided 
+on an 'as-is' basis for experimental use only and is expressly not intended for deployment in production environments or 
+commercial applications.
+
+\##################################################################
+
 # The Swift AI address structuring model
 
 The address structuring model, aims to assist the community with the transition from unstructured postal addresses to
