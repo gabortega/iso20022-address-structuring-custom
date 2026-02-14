@@ -4,7 +4,7 @@ This module provides an interface to running pipeline for address structuring.
 import logging
 import warnings
 from itertools import islice
-from typing import List
+from typing import Generator
 
 from data_structuring.components.data_provider.normalization import decode_and_clean_str
 from data_structuring.components.database import Database
@@ -66,7 +66,7 @@ class AddressStructuringPipeline:
         # Batch size to use for this pipeline
         self._batch_size = batch_size
 
-    def _validate_sample(self, sample: str) -> True:
+    def _validate_sample(self, sample: str) -> bool:
         """
         Raise a `ValueError` if the sample is not compliant with the current configurations, indicating what failed.
         Otherwise, return `True`.
@@ -102,17 +102,16 @@ class AddressStructuringPipeline:
         return AddressSample(
             text=cleaned_text,
             suggested_country=sample.suggested_country,
-            force_suggested_country=sample.force_suggested_country
+            force_suggested_country=sample.force_suggested_country,
+            hash_id=sample.hash_id,
         )
 
-    def run(self, reader: BaseReader) -> List[ResultPostProcessing]:
+    def run(self, reader: BaseReader) -> Generator[ResultPostProcessing, None, None]:
 
         logger = logging.getLogger(__name__)
 
         # Clean samples and perform sanity checks
         samples = (self._clean_and_validate_sample(sample) for sample in reader.read())
-
-        all_results = []
 
         for batch in _batched(samples, self._batch_size):
             # Extract text strings for runners that operate on raw text
@@ -123,22 +122,19 @@ class AddressStructuringPipeline:
             all_crf_results = self._crf_runner.tag(batch_texts)
             logger.info("Running Fuzzy Matching (2/4)")
             all_fuzzy_match_results = self._fuzzy_runner.match(
-                batch_texts,
+                data=batch_texts,
                 suggested_countries=[sample.suggested_country for sample in batch]
             )
             logger.info("Running Postcode Matching (3/4)")
             all_postcode_match_results = self._postcode_runner.match(batch_texts)
             logger.info("Running Post Processing (4/4)")
-            results = self._post_processing_runner.run(
-                all_crf_results,
-                all_fuzzy_match_results,
-                all_postcode_match_results,
-                address_samples=list(batch)
+            # Yield current batch of results after post-processing
+            yield from self._post_processing_runner.run(
+                crf_results=all_crf_results,
+                fuzzy_match_results=all_fuzzy_match_results,
+                postcode_match_results=all_postcode_match_results,
+                address_samples=batch
             )
-            # Save current batch to the global results list
-            all_results.extend(results)
-
-        return all_results
 
 
 def flatten_aliases(country_aliases: dict[str, dict[str, list[str]]]) -> dict[str, list[str]]:

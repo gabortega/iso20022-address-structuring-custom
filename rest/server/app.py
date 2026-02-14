@@ -3,54 +3,19 @@ Simple application to demonstrate how to use the tool as a REST server.
 """
 import logging
 from contextlib import asynccontextmanager
-from typing import List
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
-from pydantic import BaseModel, Field
-from torch.backends.mkl import verbose
 
-from data_structuring.components.readers.base_reader import AddressSample
-from data_structuring.components.readers.list_reader import ListReader
+from data_structuring.components.readers.json_reader import JsonReader
 from data_structuring.config import RunServerConfig
 from data_structuring.pipeline import AddressStructuringPipeline
+from rest.server.api.process_address_api import ProcessAddressResponse, ProcessAddressRequest, PairedMatchResult, \
+    CountryMatchResult, TownMatchResult, ProcessAddressResult
 
 logger = logging.getLogger(__name__)
 
 pipeline: AddressStructuringPipeline | None = None
-
-
-class StructureRequest(BaseModel):
-    address_samples: list[AddressSample] = Field(description="List of unstructured addresses to process")
-    num_results: int = Field(default=2, description="Number of results to return")
-    verbose: bool = Field(default=False, description="Enable verbose output")
-
-
-class BaseMatchResult(BaseModel):
-    matched: str
-    confidence_score: float | None
-    resolved_name: str
-    start_index: int | None
-    end_index: int | None
-    flags: List[str] | None
-
-
-class TownMatchResult(BaseMatchResult):
-    inferred_country_resolved_code: str | None
-
-
-class PairedMatchResult(BaseModel):
-    country_match: BaseMatchResult
-    town_match: TownMatchResult
-
-
-class ProcessResult(BaseModel):
-    address: str
-    matches: list[PairedMatchResult]
-
-
-class ProcessResponse(BaseModel):
-    results: list[ProcessResult]
 
 
 @asynccontextmanager
@@ -70,44 +35,46 @@ app = FastAPI(
 )
 
 
-@app.post("/process_address", response_model=ProcessResponse, response_class=ORJSONResponse)
-def infer_town_country_from_address(request: StructureRequest):
-    """Process a list of unstructured addresses and return the inferred town and country for each address."""
-    reader = ListReader(request.address_samples)
+@app.post("/process-address", response_model=ProcessAddressResponse, response_class=ORJSONResponse)
+async def infer_town_country_from_address(request: ProcessAddressRequest) -> ProcessAddressResponse:
+    """
+    Process a list of unstructured addresses and return the inferred town and country for each address.
+    """
+    reader = JsonReader(request.address_samples)
     raw_results = pipeline.run(reader)
 
     results = []
     for result in raw_results:
         matches = []
-        for i in range(min(request.num_results, len(raw_results))):
+        for i in range(request.num_results):
             country_corrected, country_conf, country_matched = result.i_th_best_match_country(i, value_if_none=None)
             town_corrected, town_conf, town_matched = result.i_th_best_match_town(i, value_if_none=None)
             if country_matched is None and town_matched is None:
                 continue
-            country_details = result.fuzzy_match_result.country_matches.model_dump(mode="json")[i] if verbose else None
-            town_details = result.fuzzy_match_result.town_matches.model_dump(mode="json")[i] if verbose else None
+            country_details = result.fuzzy_match_result.country_matches.model_dump(mode="json")[i]
+            town_details = result.fuzzy_match_result.town_matches.model_dump(mode="json")[i]
             matches.append(PairedMatchResult(
                 # Country results
-                country_match=BaseMatchResult(
+                countryMatch=CountryMatchResult(
                     matched=country_matched,
-                    confidence_score=country_conf,
-                    resolved_name=country_corrected,
-                    start_index=country_details["start"] if verbose else None,
-                    end_index=country_details["end"] if verbose else None,
-                    flags=country_details["flags"] if verbose else None),
+                    confidenceScore=country_conf,
+                    resolvedName=country_corrected,
+                    startIndex=country_details["start"],
+                    endIndex=country_details["end"],
+                    flags=country_details["flags"]),
                 # Town results
-                town_match=TownMatchResult(
+                townMatch=TownMatchResult(
+                    inferredCountryCode=result.fuzzy_match_result.town_matches[i].origin,
                     matched=town_matched,
-                    confidence_score=town_conf,
-                    resolved_name=town_corrected,
-                    inferred_country_resolved_code=result.fuzzy_match_result.town_matches[i].origin,
-                    start_index=town_details["start"] if verbose else None,
-                    end_index=town_details["end"] if verbose else None,
-                    flags=town_details["flags"] if verbose else None)
+                    confidenceScore=town_conf,
+                    resolvedName=town_corrected,
+                    startIndex=town_details["start"],
+                    endIndex=town_details["end"],
+                    flags=town_details["flags"])
             ))
-        results.append(ProcessResult(
-            address=result.crf_result.details.content,
+        results.append(ProcessAddressResult(
+            hashId=result.hash_id,
             matches=matches,
         ))
 
-    return ProcessResponse(results=results)
+    return ProcessAddressResponse(results=results)

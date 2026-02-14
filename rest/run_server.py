@@ -11,7 +11,6 @@ def _server():
     Function called when the program is used as a server.
     Not meant to be used in any other way.
     """
-
     # Parse server application args
     server_args = RunServerConfig()
 

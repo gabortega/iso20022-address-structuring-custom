@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Generator
+from typing import Generator, Iterable
 
 import numpy as np
 
@@ -115,10 +115,10 @@ class RunnerPostProcessing(BaseRunner):
         return code, not_code
 
     def run(self,
-            crf_results: list[ResultRunnerCRF],
-            fuzzy_match_results: list[ResultRunnerFuzzyMatch],
-            postcode_match_results: list[ResultRunnerPostcodeMatch],
-            address_samples: list[AddressSample]
+            crf_results: Iterable[ResultRunnerCRF],
+            fuzzy_match_results: Iterable[ResultRunnerFuzzyMatch],
+            postcode_match_results: Iterable[ResultRunnerPostcodeMatch],
+            address_samples: Iterable[AddressSample]
             ) -> Generator[ResultPostProcessing, None, None]:
         """Post-process CRF and fuzzy match results to generate final predictions."""
 
@@ -303,6 +303,7 @@ class RunnerPostProcessing(BaseRunner):
                 fuzzy_match_result=fuzzy_match_result,
                 ibans=ibans,
                 suggested_country=suggested_country,
-                force_suggested_country=force_suggested_country
+                force_suggested_country=force_suggested_country,
+                hash_id=address_sample.hash_id
             )
         logger.info("Done post-processing")

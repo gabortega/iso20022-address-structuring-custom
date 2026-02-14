@@ -21,10 +21,19 @@ POSSIBLE_FORCED_FLAG_VALUES = [
 
 @dataclass(frozen=True, slots=True)
 class AddressSample:
-    """An address string with optional per-row metadata."""
+    """
+    An address string with optional per-row metadata.
+
+    Attributes:
+        text (str): The address string.
+        suggested_country (str): The suggested country code (if present).
+        force_suggested_country (bool): Toggle whether to force suggested country code (if present).
+        hash_id (str): The unique hash identifier of the address (if present).
+    """
     text: str
     suggested_country: str | None = None
     force_suggested_country: bool = False
+    hash_id: str | None = None
 
 
 class BaseReader(ABC):

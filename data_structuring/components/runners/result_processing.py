@@ -76,6 +76,7 @@ class ResultPostProcessing(BaseModel):
     suggested_country: str | None = Field(default=None, description="The suggested country code from the input")
     force_suggested_country: bool = Field(default=False,
                                           description="Whether the suggested country was forced as the only possibility")
+    hash_id: str | None = Field(default=None, description="Unique hash identifier of the address")
 
     def _i_th_best_match(self,
                          i: int,
