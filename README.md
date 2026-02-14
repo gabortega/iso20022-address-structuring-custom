@@ -1,14 +1,14 @@
 \##################################################################
 
-**DISCLAIMER**: This repository represents a forked implementation of the Swift Address structuring model, maintained 
-exclusively for the purpose of independent research, experimentation, and ad-hoc solution testing. The code modifications 
-contained within this repository are neither endorsed nor sanctioned by Swift in any capacity. This software is provided 
-on an 'as-is' basis for experimental use only and is expressly not intended for deployment in production environments or 
-commercial applications.
+**DISCLAIMER**: This repository represents a forked implementation of the Swift Address structuring model, maintained
+exclusively for the purpose of independent research, experimentation, and ad-hoc solution testing. The code
+modifications contained within this repository are neither endorsed nor sanctioned by Swift in any capacity. This
+software is provided on an 'as-is' basis for experimental use only and is expressly not intended for deployment in
+production environments or commercial applications.
 
 \##################################################################
 
-# The Swift AI address structuring model
+# ISO 20022 AI address structuring model
 
 The address structuring model, aims to assist the community with the transition from unstructured postal addresses to
 structured ISO 20022 CBPR+ format with field options for Town and Country. The model itself, although it does not
@@ -28,8 +28,9 @@ Before installing, ensure the following prerequisites are met:
 - Python 3.12 or higher
 - pip (Python package installer)
 - System compatible with PyTorch 2.6.0
-- Swift Address Structuring model codebase (content of this repository)
-- Swift Address Structuring model resources ([link](https://github.com/Swift-SC/iso20022-address-structuring-resources))
+- ISO 20022 Address Structuring model codebase (content of this repository)
+- Original Swift Address Structuring model
+  resources ([link](https://github.com/Swift-SC/iso20022-address-structuring-resources))
 - Access to GeoNames to fetch the necessary files from the GeoNames export FTP server
 
 ### Environment Setup
@@ -118,6 +119,8 @@ that the model maintains an adequate level of performance.
 
 ### Usage
 
+#### Command-line runner
+
 Running the model can be run on the provided input CSV file by using the following command:
 
 ```bash
@@ -128,6 +131,72 @@ python3 data_structuring/run.py \
 
 This will generate an output file with the name *data_structuring_output.csv* with all the explainability columns
 present.
+
+#### REST server runner
+
+The model can also be run as a REST server that can receive addresses to be structured as API calls.
+To run the server, use the following command:
+
+```bash
+python3 rest/run_server.py \
+            --hostname=127.0.0.1
+            --port=8080
+```
+
+This will launch the server on localhost using port 8080. To test that the server is running properly,
+use the follwing *curl* command:
+
+```bash
+curl --header "Content-Type: application/json" \
+      --request POST \
+      --data '{"numResults":"1", "addressSamples":[{"text":"SWIFT\nAVENUE ADELE 1\nLA HULPE, 1310\nBELGIQUE", "suggestedCountry":"BE", "forceSuggestedCountry":"True", "hashId":"abcd1234"}]}' \
+      http://127.0.0.1:8080/process-address
+```
+
+And the server should give (roughly) the following output (if the config has been not been altered):
+
+```python
+{
+    "results": [
+        {
+            "hashId": "abcd1234",
+            "matches": [
+                {
+                    "countryMatch": {
+                        "matched": "BELGIQUE",
+                        "confidenceScore": 0.9792305977702621,
+                        "resolvedName": "BE",
+                        "startIndex": 36,
+                        "endIndex": 44,
+                        "flags": [
+                            "IS_IN_LAST_THIRD",
+                            "IS_VERY_CLOSE_TO_TOWN",
+                            "MLP_AGREES",
+                            "POSTAL_CODE_IS_PRESENT",
+                            "TOWN_IS_PRESENT"
+                        ]
+                    },
+                    "townMatch": {
+                        "matched": "LA HULPE",
+                        "confidenceScore": 0.967311538089626,
+                        "resolvedName": "LA HULPE",
+                        "inferredCountryCode": "BE",
+                        "startIndex": 21,
+                        "endIndex": 29,
+                        "flags": [
+                            "COUNTRY_IS_PRESENT",
+                            "IS_SMALL_TOWN",
+                            "IS_VERY_CLOSE_TO_COUNTRY",
+                            "MLP_COUNTRY_IS_PRESENT",
+                            "SUGGESTED_COUNTRY_IS_PRESENT"
+                        ]
+                    }
+                }
+            ]
+        }
+    ]
+}
+```
 
 ### Leveraging country suggestion
 
