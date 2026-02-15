@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package address_structuring;
+
+option java_multiple_files = true;
+
+// Service for structuring unstructured ISO 20022 addresses into
+// country and town components via a CRF + fuzzy-matching pipeline.
+service AddressStructuring {
+  // Bidirectional streaming: client streams address samples,
+  // server streams back structured results as batches complete.
+  rpc ProcessAddress (stream AddressSample) returns (stream ProcessAddressResult);
+}
+
+// A single unstructured address to be processed by the pipeline.
+message AddressSample {
+  // Raw address text to structure.
+  string text = 1;
+  // Client-assigned unique identifier, echoed back in AddressResult.
+  string hash_id = 2;
+  // Optional ISO 3166-1 alpha-2 country code hint to bias matching.
+  optional string suggested_country = 3;
+  // When true, the suggested_country overrides pipeline inference.
+  bool force_suggested_country = 4;
+}
+
+// Post-processed result for a country entity.
+message CountryMatchResult {
+  // Substring in the original text that was matched.
+  string matched = 1;
+  // Confidence score of the match (0.0 to 1.0).
+  double confidence_score = 2;
+  // Resolved ISO 3166-1 alpha-2 country code.
+  string resolved_name = 3;
+  // Start character index of the match in the original text.
+  optional int32 start_index = 4;
+  // End character index of the match in the original text.
+  optional int32 end_index = 5;
+  // Diagnostic flags produced during post-processing.
+  repeated string flags = 6;
+}
+
+// Post-processed result for a town entity.
+message TownMatchResult {
+  // Substring in the original text that was matched.
+  string matched = 1;
+  // Confidence score of the match (0.0 to 1.0).
+  double confidence_score = 2;
+  // Resolved canonical town name.
+  string resolved_name = 3;
+  // Country code inferred from the matched town's origin database.
+  optional string inferred_country_code = 4;
+  // Start character index of the match in the original text.
+  optional int32 start_index = 5;
+  // End character index of the match in the original text.
+  optional int32 end_index = 6;
+  // Diagnostic flags produced during post-processing.
+  repeated string flags = 7;
+}
+
+// A paired country + town match representing one candidate interpretation.
+message PairedMatchResult {
+  // ith best country match for this candidate.
+  CountryMatchResult country_match = 1;
+  // ith best town match for this candidate.
+  TownMatchResult town_match = 2;
+}
+
+// Structured result for a single input address.
+message ProcessAddressResult {
+  // The hash_id for the corresponding AddressSample.
+  string hash_id = 1;
+  // Ranked list of candidate country/town match pairs.
+  repeated PairedMatchResult matches = 2;
+}

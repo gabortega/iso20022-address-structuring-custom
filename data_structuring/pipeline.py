@@ -64,7 +64,7 @@ class AddressStructuringPipeline:
             database=self._database_controller)
 
         # Batch size to use for this pipeline
-        self._batch_size = batch_size
+        self.batch_size = batch_size
 
     def _validate_sample(self, sample: str) -> bool:
         """
@@ -113,7 +113,7 @@ class AddressStructuringPipeline:
         # Clean samples and perform sanity checks
         samples = (self._clean_and_validate_sample(sample) for sample in reader.read())
 
-        for batch in _batched(samples, self._batch_size):
+        for batch in _batched(samples, self.batch_size):
             # Extract text strings for runners that operate on raw text
             batch_texts = [sample.text for sample in batch]
 

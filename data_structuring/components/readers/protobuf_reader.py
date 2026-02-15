@@ -9,8 +9,8 @@ from data_structuring.components.readers.base_reader import BaseReader, AddressS
 
 @mapper(AddressSample)
 @dataclass(frozen=True)
-class JsonAddressSample:
-    """Input JSON-like data structure for each address."""
+class ProtoAddressSample:
+    """Data structure to support the corresponding protobuf."""
     text: str = Field(description="Address string",
                       alias="text")
     hash_id: str = Field(description="Unique hash identifier of the address",
@@ -24,8 +24,8 @@ class JsonAddressSample:
                                           alias="forceSuggestedCountry")
 
 
-class JsonReader(BaseReader):
-    def __init__(self, data: list[JsonAddressSample]):
+class ProtoReader(BaseReader):
+    def __init__(self, data: list[ProtoAddressSample]):
         self.data = data
 
     def read(self) -> Generator[AddressSample, Any, None]:
