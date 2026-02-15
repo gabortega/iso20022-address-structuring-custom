@@ -132,71 +132,18 @@ python3 data_structuring/run.py \
 This will generate an output file with the name *data_structuring_output.csv* with all the explainability columns
 present.
 
-#### REST server runner
+#### gRPC server runner
 
-The model can also be run as a REST server that can receive addresses to be structured as API calls.
+The model can also be run as a gRPC server that can receive addresses to be structured as streaming gRPC endpoint calls.
 To run the server, use the following command:
 
 ```bash
-python3 rest/run_server.py \
+python3 grpc_api/run_server.py \
             --hostname=127.0.0.1
             --port=8080
 ```
 
-This will launch the server on localhost using port 8080. To test that the server is running properly,
-use the follwing *curl* command:
-
-```bash
-curl --header "Content-Type: application/json" \
-      --request POST \
-      --data '{"numResults":"1", "addressSamples":[{"text":"SWIFT\nAVENUE ADELE 1\nLA HULPE, 1310\nBELGIQUE", "suggestedCountry":"BE", "forceSuggestedCountry":"True", "hashId":"abcd1234"}]}' \
-      http://127.0.0.1:8080/process-address
-```
-
-And the server should give (roughly) the following output (if the config has been not been altered):
-
-```python
-{
-    "results": [
-        {
-            "hashId": "abcd1234",
-            "matches": [
-                {
-                    "countryMatch": {
-                        "matched": "BELGIQUE",
-                        "confidenceScore": 0.9792305977702621,
-                        "resolvedName": "BE",
-                        "startIndex": 36,
-                        "endIndex": 44,
-                        "flags": [
-                            "IS_IN_LAST_THIRD",
-                            "IS_VERY_CLOSE_TO_TOWN",
-                            "MLP_AGREES",
-                            "POSTAL_CODE_IS_PRESENT",
-                            "TOWN_IS_PRESENT"
-                        ]
-                    },
-                    "townMatch": {
-                        "matched": "LA HULPE",
-                        "confidenceScore": 0.967311538089626,
-                        "resolvedName": "LA HULPE",
-                        "inferredCountryCode": "BE",
-                        "startIndex": 21,
-                        "endIndex": 29,
-                        "flags": [
-                            "COUNTRY_IS_PRESENT",
-                            "IS_SMALL_TOWN",
-                            "IS_VERY_CLOSE_TO_COUNTRY",
-                            "MLP_COUNTRY_IS_PRESENT",
-                            "SUGGESTED_COUNTRY_IS_PRESENT"
-                        ]
-                    }
-                }
-            ]
-        }
-    ]
-}
-```
+This will launch the server on localhost using port 8080.
 
 ### Leveraging country suggestion
 
