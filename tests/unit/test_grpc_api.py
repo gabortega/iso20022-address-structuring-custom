@@ -5,7 +5,7 @@ import pytest
 import pytest_asyncio
 
 from grpc_api.server.address_structuring_servicer import AddressStructuringServicer
-from grpc_api.proto import address_structuring_pb2 as pb2, address_structuring_pb2_grpc as pb2_grpc
+from grpc_api.generated import address_structuring_pb2 as pb2, address_structuring_pb2_grpc as pb2_grpc
 
 
 def _mock_pipeline_result(hash_id, country_matched, country_conf, country_resolved,
@@ -195,6 +195,18 @@ class TestProcessAddress:
         assert len(samples) == 1
         assert samples[0].suggested_country == "US"
         assert samples[0].force_suggested_country is True
+
+    @pytest.mark.asyncio
+    async def test_pipeline_error_returns_internal(self, stub, mock_pipeline):
+        """Pipeline exception is caught and returned as INTERNAL gRPC status."""
+        mock_pipeline.run.side_effect = RuntimeError("pipeline broke")
+
+        with pytest.raises(grpc.aio.AioRpcError) as exc_info:
+            async for _ in stub.ProcessAddress(iter([_sample("test", "idx1")])):
+                pass
+
+        assert exc_info.value.code() == grpc.StatusCode.INTERNAL
+        assert "pipeline broke" in exc_info.value.details()
 
     @pytest.mark.asyncio
     async def test_response_contains_start_end_indices(self, stub, mock_pipeline):

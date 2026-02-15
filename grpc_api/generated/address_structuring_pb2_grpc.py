@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import grpc_api.proto.address_structuring_pb2 as address__structuring__pb2
+import grpc_api.generated.address_structuring_pb2 as address__structuring__pb2
 
 GRPC_GENERATED_VERSION = '1.78.0'
 GRPC_VERSION = grpc.__version__

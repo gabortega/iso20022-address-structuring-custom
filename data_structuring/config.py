@@ -295,9 +295,21 @@ class RunServerConfig(BaseSettingsISO):
     # Server settings
     hostname: str = Field(default="127.0.0.1", description="Server hostname")
     port: int = Field(default=8080, description="Server port")
+    shutdown_grace_seconds: int = 5
+    stream_timeout_seconds: int = 300
+    max_workers: int = 3
+
+    # SSL/TLS settings
+    ssl_enabled: bool = Field(default=False, description="Enable SSL/TLS for the gRPC server")
+    ssl_cert_path: Path | None = Field(default=None, description="Path to the SSL certificate file (PEM)")
+    ssl_key_path: Path | None = Field(default=None, description="Path to the SSL private key file (PEM)")
+    ssl_ca_cert_path: Path | None = Field(default=None,
+                                          description="Path to the CA certificate file (PEM) for mutual TLS. "
+                                                      "If provided, client certificate authentication is required.")
 
     # Inference parameters
     batch_size: int = 1024
+    num_results: int = 2
 
     logging_config: Path | None = Field(default=None,
                                         description="Path to the logging configuration file",
