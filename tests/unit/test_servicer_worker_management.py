@@ -1,6 +1,7 @@
 import asyncio
 from multiprocessing import Process, Pipe
 from queue import Full, ShutDown
+from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import grpc
@@ -10,6 +11,8 @@ from grpc.aio._typing import MetadataType
 
 from data_structuring.config import RunServerConfig
 from grpc_api.server.address_structuring_servicer import AddressStructuringServicer
+
+PIPELINE_MAX_INSTANCES = 2
 
 
 def _make_mock_process(alive: bool = True, pid: int = 1000, exitcode: int = None) -> Process:
@@ -27,8 +30,10 @@ def servicer() -> AddressStructuringServicer:
     with patch.object(AddressStructuringServicer, "__init__", lambda self: None):
         svc = AddressStructuringServicer.__new__(AddressStructuringServicer)
         svc._server_config = RunServerConfig(
-            pipeline_max_instances=2,
-            processing_timeout_seconds=5
+            monitor_startup_time_seconds=0,
+            pipeline_max_instances=PIPELINE_MAX_INSTANCES,
+            processing_timeout_seconds=5,
+            monitor_check_interval_seconds=0.01
         )
         svc._pipeline_processes = []
         svc._global_queue = Mock()
@@ -63,9 +68,9 @@ class TestReplaceDeadWorkers:
         servicer._pipeline_processes = [dead_proc, alive_proc]
 
         with patch.object(servicer, "_start_worker", return_value=new_proc) as start_worker:
-            replaced = await servicer._replace_dead_workers()
+            detected = await servicer._detect_dead_workers(replace=True)
 
-        assert replaced == 1
+        assert detected[0] == 1
         dead_proc.close.assert_called_once()
         alive_proc.close.assert_not_called()
         start_worker.assert_called_once()
@@ -80,9 +85,9 @@ class TestReplaceDeadWorkers:
         servicer._pipeline_processes = [alive_proc]
 
         with patch.object(servicer, "_start_worker", return_value=new_proc) as start_worker:
-            replaced = await servicer._replace_dead_workers()
+            detected = await servicer._detect_dead_workers(replace=True)
 
-        assert replaced == 1
+        assert detected[0] == 1
         alive_proc.close.assert_not_called()
         start_worker.assert_called_once()
         assert servicer._pipeline_processes[0] is alive_proc
@@ -96,9 +101,9 @@ class TestReplaceDeadWorkers:
         servicer._pipeline_processes = [alive_proc_1, alive_proc_2]
 
         with patch.object(servicer, "_start_worker") as start_worker:
-            replaced = await servicer._replace_dead_workers()
+            detected = await servicer._detect_dead_workers(replace=True)
 
-        assert replaced == 0
+        assert detected[0] == 0
         alive_proc_1.close.assert_not_called()
         alive_proc_2.close.assert_not_called()
         start_worker.assert_not_called()
@@ -201,9 +206,8 @@ class TestMonitorWorkers:
     @pytest.mark.asyncio
     async def test_monitor_stops_on_shutdown(self, servicer: AddressStructuringServicer):
         """The monitor loop exits when _shutting_down is set."""
-        servicer._server_config.pipeline_health_check_interval_seconds = 0.01
 
-        with patch.object(servicer, "_replace_dead_workers", new_callable=AsyncMock, return_value=0) as mock_replace:
+        with patch.object(servicer, "_detect_dead_workers", new_callable=AsyncMock, return_value=0) as mock_replace:
             # Let the monitor run briefly then shut it down
             task = asyncio.create_task(servicer._monitor_workers())
             await asyncio.sleep(0.05)
@@ -218,50 +222,47 @@ class TestMonitorWorkers:
             assert mock_replace.await_count >= 1
 
     @pytest.mark.asyncio
-    async def test_monitor_calls_replace(self, servicer: AddressStructuringServicer):
-        """The monitor invokes _replace_dead_workers each cycle."""
-        servicer._server_config.pipeline_health_check_interval_seconds = 0.01
+    async def test_monitor_calls_detect(self, servicer: AddressStructuringServicer):
+        """The monitor invokes _detect_dead_workers each cycle."""
         call_count = 0
 
-        async def counting_replace():
+        async def counting_call(replace: Any):
             nonlocal call_count
             call_count += 1
-            if call_count >= 3:
+            if call_count >= 4:
                 servicer._shutting_down = True
-            return 0
+            return 0, PIPELINE_MAX_INSTANCES
 
-        with patch.object(servicer, "_replace_dead_workers", side_effect=counting_replace):
+        with patch.object(servicer, "_detect_dead_workers", side_effect=counting_call):
             await servicer._monitor_workers()
 
-        assert call_count >= 3
+        assert call_count >= 4
 
     @pytest.mark.asyncio
     async def test_monitor_survives_exception(self, servicer: AddressStructuringServicer):
-        """An exception in _replace_dead_workers does not kill the monitor loop."""
-        servicer._server_config.pipeline_health_check_interval_seconds = 0.01
+        """An exception in _detect_dead_workers does not kill the monitor loop."""
         call_count = 0
 
-        async def failing_then_ok_replace():
+        async def failing_then_ok_call(replace: Any):
             nonlocal call_count
             call_count += 1
-            if call_count == 1:
+            if call_count == 2:
                 raise RuntimeError("unexpected error")
-            if call_count >= 3:
+            if call_count >= 4:
                 servicer._shutting_down = True
-            return 0
+            return 0, PIPELINE_MAX_INSTANCES
 
-        with patch.object(servicer, "_replace_dead_workers", side_effect=failing_then_ok_replace):
+        with patch.object(servicer, "_detect_dead_workers", side_effect=failing_then_ok_call):
             await servicer._monitor_workers()
 
         # Monitor survived the first failure and continued for at least 2 more cycles
-        assert call_count >= 3
+        assert call_count >= 4
 
     @pytest.mark.asyncio
     async def test_monitor_exits_on_cancellation(self, servicer: AddressStructuringServicer):
         """CancelledError cleanly exits the monitor loop."""
-        servicer._server_config.pipeline_health_check_interval_seconds = 0.01
 
-        with patch.object(servicer, "_replace_dead_workers", new_callable=AsyncMock, return_value=0):
+        with patch.object(servicer, "_detect_dead_workers", new_callable=AsyncMock, return_value=0):
             task = asyncio.create_task(servicer._monitor_workers())
             await asyncio.sleep(0.03)
 
@@ -271,6 +272,20 @@ class TestMonitorWorkers:
             await asyncio.sleep(0.03)
 
             assert task.done()
+
+    @pytest.mark.asyncio
+    async def test_monitor_exits_if_initial_workers_dead(self, servicer: AddressStructuringServicer):
+        """The monitor shouldn't proceed if none of the initial workers are alive."""
+
+        with patch.object(servicer,
+                          "_detect_dead_workers",
+                          new_callable=AsyncMock,
+                          return_value=(PIPELINE_MAX_INSTANCES, PIPELINE_MAX_INSTANCES)) as mock_detection:
+            with pytest.raises(SystemExit) as exc_info:
+                await servicer._monitor_workers()
+
+            assert exc_info.value.code == 1
+            assert mock_detection.call_count == 1
 
 
 class TestHandleShutdown:

@@ -67,35 +67,54 @@ class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
         logger.info("Started worker process pid=%d", process.pid)
         return process
 
-    async def _replace_dead_workers(self) -> int:
-        """Check all workers and replace any that have died. Returns the number replaced."""
+    async def _detect_dead_workers(self, replace: bool = False) -> tuple[int, int]:
+        """
+        Check all workers to see if any have died.
+        If 'replace' is set to True, then replace these dead workers with new ones.
+
+        Returns the number of dead workers detected/replaced.
+        """
         async with self._replace_lock:
-            replaced = 0
+            detected = 0
             for i, process in enumerate(self._pipeline_processes):
                 if not process.is_alive():
                     exit_code = process.exitcode
                     logger.warning(
-                        "Worker process pid=%d died (exitcode=%s), replacing it",
+                        "Worker process pid=%d died (exitcode=%s)",
                         process.pid, exit_code,
                     )
                     process.close()
-                    self._pipeline_processes[i] = self._start_worker()
-                    replaced += 1
-            # Replace any missing processes
-            for _ in range(i + 1, self._server_config.pipeline_max_instances):
-                self._pipeline_processes.append(self._start_worker())
-                replaced += 1
-            return replaced
+                    if replace:
+                        logger.info("Replacing worker pid=%d", process.pid)
+                        self._pipeline_processes[i] = self._start_worker()
+                    detected += 1
+            if replace:
+                # Replace any missing processes
+                for _ in range(i + 1, self._server_config.pipeline_max_instances):
+                    self._pipeline_processes.append(self._start_worker())
+                    detected += 1
+            return detected, len(self._pipeline_processes)
 
     async def _monitor_workers(self) -> None:
         """Periodically check worker health and replace dead workers."""
+        # Wait for the initial process to start
+        await asyncio.sleep(self._server_config.monitor_startup_time_seconds)
+        # Perform initial check to ensure that startup was successful
+        detected_dead_workers, total_workers = await self._detect_dead_workers(False)
+        # Kill server if initial processes are not alive after startup delay
+        if detected_dead_workers or total_workers != self._server_config.pipeline_max_instances:
+            logger.critical(
+                "Detected %d initial worker processes that were unable to start out of %d total workers",
+                detected_dead_workers, total_workers
+            )
+            exit(1)
         logger.info("Worker monitor ready")
         while not self._shutting_down:
             try:
-                await asyncio.sleep(self._server_config.pipeline_health_check_interval_seconds)
+                await asyncio.sleep(self._server_config.monitor_check_interval_seconds)
                 if self._shutting_down:
                     break
-                replaced = await self._replace_dead_workers()
+                replaced, _ = await self._detect_dead_workers(replace=True)
                 if replaced:
                     logger.info("Replaced %d dead worker(s)", replaced)
             except asyncio.CancelledError:
@@ -146,7 +165,7 @@ class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
             )
         except EOFError:
             logger.exception("Worker process closed pipe without sending results")
-            asyncio.create_task(self._replace_dead_workers())
+            asyncio.create_task(self._detect_dead_workers())
             await context.abort(
                 grpc.StatusCode.DEADLINE_EXCEEDED,
                 "Worker process died while processing the request. "

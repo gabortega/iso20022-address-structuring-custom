@@ -297,11 +297,12 @@ class RunServerConfig(BaseSettingsISO):
     # Server settings
     hostname: str = Field(default="127.0.0.1", description="Server hostname")
     port: int = Field(default=8080, description="Server port")
+    monitor_startup_time_seconds: float = 5.0
     shutdown_grace_seconds: int = 5
     stream_timeout_seconds: int = 300
     processing_timeout_seconds: int = 300
     pipeline_max_instances: int = 2
-    pipeline_health_check_interval_seconds: float = 0.3
+    monitor_check_interval_seconds: float = 0.3
     max_queue_size: int = 10
     grpc_compression: Compression = Compression.Gzip
     grpc_maximum_concurrent_rpc: int = 0
