@@ -6,6 +6,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
+from grpc import Compression
 from pydantic import field_validator, ValidationInfo, Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict, CliImplicitFlag
 
@@ -273,7 +274,8 @@ class CRFConfig(BaseSettingsISO):
 class RunCLIConfig(BaseSettingsISO):
     # I/O
     input_data_path: Path = Field(Path(resources.files(data_structuring.__name__)
-                                       / ".." / "resources" / "input" / "addresses_gauntlet.csv"),
+                                       # / ".." / "resources" / "input" / "addresses_gauntlet.csv"),
+                                       / ".." / "resources" / "input" / "sample.csv"),
                                   description="Input file name",
                                   alias=AliasChoices('i', 'input_path'))
     output_data_path: Path = Field(Path("data_structuring_output.csv"),
@@ -297,7 +299,12 @@ class RunServerConfig(BaseSettingsISO):
     port: int = Field(default=8080, description="Server port")
     shutdown_grace_seconds: int = 5
     stream_timeout_seconds: int = 300
-    max_workers: int = 3
+    processing_timeout_seconds: int = 300
+    pipeline_max_instances: int = 2
+    pipeline_health_check_interval_seconds: float = 0.3
+    max_queue_size: int = 10
+    grpc_compression: Compression = Compression.Gzip
+    grpc_maximum_concurrent_rpc: int = 0
 
     # SSL/TLS settings
     ssl_enabled: bool = Field(default=False, description="Enable SSL/TLS for the gRPC server")
@@ -383,7 +390,7 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
     "disable_existing_loggers": False,
     "formatters": {
         "standard": {
-            "format": "%(asctime)s [%(levelname)8s] - %(name)s@%(funcName)s: %(message)s"
+            "format": "%(asctime)s [%(levelname)8s] - [%(process)d] - %(name)s@%(funcName)s: %(message)s"
         }
     },
     "handlers": {

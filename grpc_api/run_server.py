@@ -2,32 +2,33 @@
 Entry point for the address structuring gRPC server.
 """
 import asyncio
-import logging
+import logging.config
 import signal
-from concurrent import futures
 
 import grpc
 
-from data_structuring.config import RunServerConfig
-from data_structuring.pipeline import AddressStructuringPipeline
+from data_structuring.config import RunServerConfig, DEFAULT_LOGGING_CONFIG
 from grpc_api.generated import pb2_grpc_add_AddressStructuringServicer_to_server
 from grpc_api.server.address_structuring_servicer import AddressStructuringServicer
 
 logger = logging.getLogger(__name__)
 
 
-async def _serve():
+async def _serve() -> None:
     server_args = RunServerConfig()
 
-    # Create AddressStructuringPipeline
-    logger.info("Initializing AddressStructuringPipeline")
-    pipeline = AddressStructuringPipeline(batch_size=server_args.batch_size)
-    logger.info("Pipeline ready")
-
-    # Create gRPC server and register the pipeline
-    server = grpc.aio.server(futures.ThreadPoolExecutor(max_workers=server_args.max_workers))
+    # Create gRPC server and register the pipelines
+    logger.info("Initializing gRPC server")
+    server = grpc.aio.server(
+        compression=server_args.grpc_compression,
+        maximum_concurrent_rpcs=(
+            server_args.grpc_maximum_concurrent_rpc if server_args.grpc_maximum_concurrent_rpc > 0 else None
+        ),
+    )
+    logger.info("Initializing AddressStructuringServicer")
+    servicer = AddressStructuringServicer(server_config=server_args)
     pb2_grpc_add_AddressStructuringServicer_to_server(
-        AddressStructuringServicer(pipeline), server
+        servicer, server
     )
 
     # Bind server address and port
@@ -56,6 +57,7 @@ async def _serve():
     async def _shutdown():
         logger.info("Shutting down gRPC server (grace=%ds)...", server_args.shutdown_grace_seconds)
         await server.stop(grace=server_args.shutdown_grace_seconds)
+        await servicer.handle_shutdown()
 
     event_loop = asyncio.get_event_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
@@ -68,5 +70,5 @@ async def _serve():
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.config.dictConfig(DEFAULT_LOGGING_CONFIG)
     asyncio.run(_serve())
