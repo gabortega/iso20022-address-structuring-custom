@@ -18,6 +18,12 @@ from data_structuring.config import (CRFConfig,
                                      PostProcessingCountryWeightsConfig,
                                      PostProcessingTownWeightsConfig)
 
+# Ignore the specific nested tensors warning from PyTorch
+warnings.filterwarnings(
+    "ignore",
+    message="The PyTorch API of nested tensors is in prototype stage and will change in the near future."
+)
+
 
 # Custom functions
 def _batched(iterable, n):
