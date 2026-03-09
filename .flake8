@@ -1,0 +1,13 @@
+[flake8]
+exclude =
+    __pycache__
+    address_structuring_pb2.py
+    address_structuring_pb2_grpc.py
+max-line-length = 122
+per-file-ignores =
+    # imported but unused
+    __init__.py: F401
+    # invalid escape sequence
+    BusinessSampler.py: W605
+    # do not use bare 'except'
+    address_structuring_servicer.py: E722

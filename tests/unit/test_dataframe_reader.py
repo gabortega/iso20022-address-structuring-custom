@@ -25,13 +25,13 @@ def test_dataframe_reader_basic():
     assert len(results) == 3
     assert results[0].text == "123 Main St"
     assert results[0].suggested_country is None
-    assert results[0].force_suggested_country == False
+    assert results[0].force_suggested_country is False
     assert results[1].text == "456 Oak Ave"
-    assert results[1].suggested_country == None
-    assert results[1].force_suggested_country == False
+    assert results[1].suggested_country is None
+    assert results[1].force_suggested_country is False
     assert results[2].text == "789 Pine Rd"
-    assert results[2].suggested_country == None
-    assert results[2].force_suggested_country == False
+    assert results[2].suggested_country is None
+    assert results[2].force_suggested_country is False
 
     # Create reader with all arguments
     reader = DataFrameReader(
@@ -48,13 +48,13 @@ def test_dataframe_reader_basic():
     assert len(results) == 3
     assert results[0].text == "123 Main St"
     assert results[0].suggested_country is None
-    assert results[0].force_suggested_country == False
+    assert results[0].force_suggested_country is False
     assert results[1].text == "456 Oak Ave"
     assert results[1].suggested_country == "US"
-    assert results[1].force_suggested_country == False
+    assert results[1].force_suggested_country is False
     assert results[2].text == "789 Pine Rd"
     assert results[2].suggested_country == "US"
-    assert results[2].force_suggested_country == True
+    assert results[2].force_suggested_country is True
 
 
 def test_dataframe_reader_empty_dataframe():

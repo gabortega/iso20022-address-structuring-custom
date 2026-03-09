@@ -263,6 +263,7 @@ def test_generate_combinations_solo_town():
     assert result[0][0].origin == "NO COUNTRY"  # No country
     assert result[0][1].possibility == "NO TOWN"  # No town
 
+
 def test_generate_combinations_no_matches():
     """Test generate_combinations with no country or town matches."""
     # Setup

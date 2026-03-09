@@ -4,25 +4,22 @@ This module provides an interface to running pipeline for address structuring.
 import logging
 import logging.config
 import sys
-# Standard libraries
 import warnings
 
 import orjson
 
 from data_structuring.components.readers.base_reader import DEFAULT_ADDRESS_COLUMN, DEFAULT_SUGGESTED_COUNTRY_COLUMN, \
     DEFAULT_FORCE_SUGGESTED_COUNTRY_COLUMN
+from data_structuring.components.readers.file_reader import TextFileReader, CsvFileReader
+from data_structuring.components.runners import ResultPostProcessing
+from data_structuring.config import PostProcessingConfig, DEFAULT_LOGGING_CONFIG, RunCLIConfig
+from data_structuring.pipeline import AddressStructuringPipeline
 
 # Ignore the specific nested tensors warning from PyTorch
 warnings.filterwarnings(
     "ignore",
     message="The PyTorch API of nested tensors is in prototype stage and will change in the near future."
 )
-
-from data_structuring.components.readers.file_reader import TextFileReader, CsvFileReader
-# Runners
-from data_structuring.components.runners import ResultPostProcessing
-from data_structuring.pipeline import AddressStructuringPipeline
-from data_structuring.config import PostProcessingConfig, DEFAULT_LOGGING_CONFIG, RunCLIConfig
 
 logger = logging.getLogger(__name__)
 

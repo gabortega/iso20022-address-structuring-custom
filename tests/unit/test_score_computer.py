@@ -268,7 +268,8 @@ def test_compute_country_score_bonus(score_computer):
         CountryFlag.IBAN_IS_PRESENT,
         CountryFlag.PHONE_PREFIX_IS_PRESENT,
         CountryFlag.DOMAIN_IS_PRESENT,
-        CountryFlag.POSTAL_CODE_IS_PRESENT]:
+        CountryFlag.POSTAL_CODE_IS_PRESENT
+    ]:
         # Score with bonus flags
         score_with_bonus = score_computer.compute_country_score(
             crf_score=0.7, dist_score=0,
@@ -285,7 +286,8 @@ def test_compute_country_score_malus(score_computer):
         CommonFlag.IS_INSIDE_ANOTHER_WORD,
         CommonFlag.IS_SHORT,
         CommonFlag.IS_COMMON_STATE_PROVINCE_ALIAS,
-        CommonFlag.IS_INSIDE_STREET]:
+        CommonFlag.IS_INSIDE_STREET
+    ]:
         # Score with malus flags
         score_with_malus = score_computer.compute_country_score(
             crf_score=0.7, dist_score=0,

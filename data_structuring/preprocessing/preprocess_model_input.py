@@ -49,6 +49,7 @@ def split_every_35th_char(string):
         res = res + current_line
     return res
 
+
 # Takes a single argument which is the input that needs to be re-formatted
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

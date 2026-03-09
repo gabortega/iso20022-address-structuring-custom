@@ -24,8 +24,10 @@ def gauntlet_path():
     # return Path(resources.files(data_structuring.__name__) / ".." / "resources" / "input" / "addresses_gauntlet.csv")
     return Path(resources.files(
         data_structuring.__name__) / ".." / "resources" / "input" / "addresses_gauntlet_with_suggestions.csv")
-    # return Path(resources.files(data_structuring.__name__) / ".." / "resources" / "input" / "addresses_wikipedia.csv")
-    # return Path(resources.files(data_structuring.__name__) / ".." / "resources" / "input" / "addresses_wikipedia_with_suggestions.csv")
+    # return Path(resources.files(data_structuring.__name__) / ".." /
+    #             "resources" / "input" / "addresses_wikipedia.csv")
+    # return Path(resources.files(data_structuring.__name__) / ".." /
+    #             "resources" / "input" / "addresses_wikipedia_with_suggestions.csv")
 
 
 @pytest.fixture(autouse=True)
