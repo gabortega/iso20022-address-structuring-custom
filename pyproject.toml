@@ -3,12 +3,12 @@ requires = ["setuptools>=53.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "swift_address_structuring"
-version = "1.0.2"
-description = "ISO Address Structuring Package"
+name = "iso_20022_address_structuring_gRPC"
+version = "1.0.0"
+description = "ISO 20022 Address Structuring gRPC Server"
 readme = "README.md"
 requires-python = ">=3.12"
-license-files = ["LICENSE.txt", "LICENSE.pdf"]
+license-files = ["LICENSE.txt"]
 
 # Core dependencies that are always required
 dependencies = [

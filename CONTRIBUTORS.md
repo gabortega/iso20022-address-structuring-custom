@@ -1,1 +1,0 @@
-Swift encourages forking, derivation and redistribution as per the terms of the LICENSE, but does not accept external contributions at this time.
