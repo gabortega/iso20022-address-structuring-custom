@@ -9,6 +9,7 @@ import grpc
 
 from data_structuring.config import RunServerConfig, DEFAULT_LOGGING_CONFIG
 from grpc_api.generated import pb2_grpc_add_AddressStructuringServicer_to_server
+from grpc_api.interceptor.rpc_interceptor import RPCInterceptor
 from grpc_api.server.address_structuring_servicer import AddressStructuringServicer
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ async def _serve() -> None:
         maximum_concurrent_rpcs=(
             server_args.grpc_maximum_concurrent_rpc if server_args.grpc_maximum_concurrent_rpc > 0 else None
         ),
+        interceptors=[RPCInterceptor()]
     )
     logger.info("Initializing AddressStructuringServicer")
     servicer = AddressStructuringServicer(server_config=server_args)

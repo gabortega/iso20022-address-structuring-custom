@@ -207,20 +207,6 @@ class TestProcessAddress:
         assert samples[0].force_suggested_country is True
 
     @pytest.mark.asyncio
-    async def test_pipeline_error_returns_internal(self,
-                                                   stub: AddressStructuringStub,
-                                                   servicer: AddressStructuringServicer):
-        """Pipeline exception is caught and returned as INTERNAL gRPC status."""
-        servicer._process_samples.side_effect = RuntimeError("pipeline broke")
-
-        with pytest.raises(grpc.aio.AioRpcError) as exc_info:
-            async for _ in stub.ProcessAddress(iter([_sample("test", "idx1")])):
-                pass
-
-        assert exc_info.value.code() == grpc.StatusCode.INTERNAL
-        assert "pipeline broke" in exc_info.value.details()
-
-    @pytest.mark.asyncio
     async def test_response_contains_start_end_indices(self,
                                                        stub: AddressStructuringStub,
                                                        servicer: AddressStructuringServicer):

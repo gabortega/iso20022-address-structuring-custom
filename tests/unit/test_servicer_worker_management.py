@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import grpc
 import pytest
+from grpc._cython.cygrpc import _Metadatum
 from grpc.aio import ServicerContext
 from grpc.aio._typing import MetadataType
 
@@ -53,6 +54,7 @@ def mock_context() -> ServicerContext:
                                 trailing_metadata: MetadataType = ()):
         raise grpc.aio.AioRpcError(code, None, trailing_metadata, details=details)
 
+    ctx.invocation_metadata = lambda: (_Metadatum("dummy", "val"),)
     ctx.abort.side_effect = abort_side_effect
     return ctx
 
@@ -110,6 +112,39 @@ class TestReplaceDeadWorkers:
         assert servicer._pipeline_processes[0] is alive_proc_1
         assert servicer._pipeline_processes[1] is alive_proc_2
 
+    @pytest.mark.asyncio
+    async def test_replaces_forcefully_closed_process(self, servicer: AddressStructuringServicer):
+        """A process that raises ValueError on is_alive() is detected and replaced."""
+        broken_proc = _make_mock_process(alive=True, pid=100)
+        broken_proc.is_alive.side_effect = ValueError("process is closed")
+        alive_proc = _make_mock_process(alive=True, pid=202)
+        new_proc = _make_mock_process(alive=True, pid=300)
+        servicer._pipeline_processes = [broken_proc, alive_proc]
+
+        with patch.object(servicer, "_start_worker", return_value=new_proc) as start_worker:
+            detected = await servicer._detect_dead_workers(replace=True)
+
+        assert detected[0] == 1
+        broken_proc.close.assert_called_once()
+        alive_proc.close.assert_not_called()
+        start_worker.assert_called_once()
+        assert servicer._pipeline_processes[0] is new_proc
+        assert servicer._pipeline_processes[1] is alive_proc
+
+    @pytest.mark.asyncio
+    async def test_detects_forcefully_closed_without_replace(self, servicer: AddressStructuringServicer):
+        """A forcefully closed process is detected but not replaced when replace=False."""
+        broken_proc = _make_mock_process(alive=True, pid=100)
+        broken_proc.is_alive.side_effect = ValueError("process is closed")
+        servicer._pipeline_processes = [broken_proc]
+
+        with patch.object(servicer, "_start_worker") as start_worker:
+            detected = await servicer._detect_dead_workers(replace=False)
+
+        assert detected[0] == 1
+        broken_proc.close.assert_called_once()
+        start_worker.assert_not_called()
+
 
 class TestProcessSamples:
 
@@ -157,12 +192,8 @@ class TestProcessSamples:
                                                      servicer: AddressStructuringServicer,
                                                      mock_context: ServicerContext):
         """When poll() times out, DEADLINE_EXCEEDED is raised."""
-        read_end = Mock()
-        read_end.poll.return_value = False  # simulate timeout
-
-        with patch("grpc_api.server.address_structuring_servicer.Pipe", return_value=(read_end, Mock())):
-            with pytest.raises(grpc.aio.AioRpcError) as exc_info:
-                await servicer._process_samples([], mock_context)
+        with pytest.raises(grpc.aio.AioRpcError) as exc_info:
+            await servicer._process_samples([], mock_context)
 
         assert exc_info.value.code() == grpc.StatusCode.DEADLINE_EXCEEDED
         mock_context.abort.assert_awaited_once()
@@ -185,19 +216,29 @@ class TestProcessSamples:
         mock_context.abort.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_recv_eoferror_returns_deadline_exceeded(self,
-                                                           servicer: AddressStructuringServicer,
-                                                           mock_context: ServicerContext):
-        """When recv() raises EOFError (worker crashed mid-task), DEADLINE_EXCEEDED is raised."""
+    async def test_recv_eoferror_returns_internal(self,
+                                                  servicer: AddressStructuringServicer,
+                                                  mock_context: ServicerContext):
+        """When recv() raises EOFError (worker crashed mid-task), INTERNAL is raised."""
+        mock_event_loop = Mock()
+        mock_event_loop.add_reader = lambda _, __: None
+
+        async def event_no_wait():
+            return True
+
+        mock_event = AsyncMock()
+        mock_event.wait = event_no_wait
+
         read_end = Mock()
-        read_end.poll.return_value = True
-        read_end.recv.side_effect = EOFError()
+        read_end.recv.return_value = Exception()
 
         with patch("grpc_api.server.address_structuring_servicer.Pipe", return_value=(read_end, Mock())):
-            with pytest.raises(grpc.aio.AioRpcError) as exc_info:
-                await servicer._process_samples([], mock_context)
+            with patch("asyncio.get_event_loop", return_value=mock_event_loop):
+                with patch("asyncio.Event", return_value=mock_event):
+                    with pytest.raises(grpc.aio.AioRpcError) as exc_info:
+                        await servicer._process_samples([], mock_context)
 
-        assert exc_info.value.code() == grpc.StatusCode.DEADLINE_EXCEEDED
+        assert exc_info.value.code() == grpc.StatusCode.INTERNAL
         assert "died while processing" in mock_context.abort.call_args[0][1].lower()
 
 

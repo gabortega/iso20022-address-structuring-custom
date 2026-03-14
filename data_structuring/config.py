@@ -416,3 +416,6 @@ DEFAULT_LOGGING_CONFIG: dict[str, Any] = {
         }
     }
 }
+
+RPC_LOGGING_FORMAT_TOKEN = "RPC_ID"
+RPC_LOGGING_FORMAT = "%(asctime)s [%(levelname)8s] - [%(process)d] - {RPC_ID} - %(name)s@%(funcName)s: %(message)s"
