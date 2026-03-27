@@ -1,0 +1,118 @@
+name: Build and Deploy Python to Azure App Service (Linux)
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+env:
+  PYTHON_VERSION: '3.13'                              # Change to your target version
+  AZURE_APP_NAME: 'iso20022-address-structuring-grpc' # Change to your App Service name
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download dependencies
+        run: |
+          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/allCountries.zip
+          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/countryInfo.txt
+          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/alternateNamesV2.zip
+          
+          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/allCountries.zip
+          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/CA_full.csv.zip
+          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/GB_full.csv.zip
+          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/NL_full.csv.zip
+          
+          wget -nv -P resources/raw/restCountries \
+          https://gitlab.com/restcountries/restcountries/-/raw/master/src/main/resources/countriesV3.1.json
+
+      - name: Explode dependencies
+        run: |
+          unzip resources/raw/geonames/allCountries.zip -d resources/raw/geonames
+          unzip resources/raw/geonames/alternateNamesV2.zip -d resources/raw/geonames
+          
+          unzip resources/raw/postcodes/allCountries.zip -d resources/raw/postcodes
+          unzip resources/raw/postcodes/CA_full.csv.zip -d resources/raw/postcodes
+          unzip resources/raw/postcodes/GB_full.csv.zip -d resources/raw/postcodes
+          unzip resources/raw/postcodes/NL_full.csv.zip -d resources/raw/postcodes
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Create and activate virtual environment
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run flake8
+        run: python -m flake8 data_structuring grpc_api tests
+
+      - name: Run preprocessing scripts
+        run: |
+          export PYTHONPATH=$(pwd)
+          python data_structuring/preprocessing/preprocess_geonames_countries.py
+          python data_structuring/preprocessing/preprocess_geonames_towns.py
+          python data_structuring/preprocessing/preprocess_geonames_postcodes.py
+          python data_structuring/preprocessing/preprocess_rest_countries.py
+
+      - name: Remove raw dependencies
+        run: rm -rf resources/raw
+
+      - name: Run unit tests
+        run: pytest tests/unit
+
+      - name: Run integration tests
+        run: pytest tests/integration
+
+      - name: Zip artifact for deployment
+        run: zip -r release.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.webapp-url }}
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact
+        run: unzip release.zip
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service
+        id: deploy
+        uses: azure/webapps-Deploy@v3
+        with:
+          app-name: ${{ env.AZURE_APP_NAME }}
+          package: .
+
+      - name: Logout of Azure
+        run: az logout
