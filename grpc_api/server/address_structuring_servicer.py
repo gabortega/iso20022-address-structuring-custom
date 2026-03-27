@@ -1,108 +1,23 @@
 import asyncio
 import logging.config
-import multiprocessing
-from dataclasses import dataclass
-from multiprocessing import Process, Queue, Pipe
-from multiprocessing.connection import Connection
+from multiprocessing import Queue
 from queue import Full, ShutDown
 from typing import AsyncGenerator, Any, AsyncIterable
 
 import grpc
 from grpc.aio import ServicerContext
 
-from data_structuring.components.readers.protobuf_reader import ProtoReader, ProtoAddressSample
+from data_structuring.components.readers.protobuf_reader import ProtoAddressSample
 from data_structuring.config import RunServerConfig
-from data_structuring.pipeline import AddressStructuringPipeline
 from grpc_api.generated import (pb2_CountryMatchResult,
                                 pb2_TownMatchResult,
                                 pb2_PairedMatchResult,
                                 pb2_ProcessAddressResult,
                                 pb2_grpc_AddressStructuringServicer)
-from grpc_api.server.utils import set_logging_config, unset_logging_config
+from grpc_api.server.process_address_tasks import ProcessAddressTask
+from grpc_api.server.worker_monitor import WorkerMonitor
 
 logger = logging.getLogger(__name__)
-multiprocessing.set_start_method("spawn", force=True)
-
-
-@dataclass(frozen=False, slots=True)
-class ProcessAddressTask:
-    """
-    A data structure to hold the input data for tracking a ProcessAddress task and returning the results.
-
-    Attributes:
-        rpc_id (str): The RPC ID string.
-        address_samples (list[ProtoAddressSample]): The list of address samples to process.
-        tracked_event: (asyncio.Event) The event that keeps track whether a worker has written an output.
-        event_loop: (asyncio.AbstractEventLoop) The event loop to use.
-        read_channel (Connection): The pipe connection channel from which to read the output.
-        write_channel (Connection): The pipe connection channel to write the output onto.
-    """
-    rpc_id: str
-    address_samples: list[ProtoAddressSample]
-    tracked_event: asyncio.Event
-    event_loop: asyncio.AbstractEventLoop
-    read_channel: Connection
-    write_channel: Connection
-
-    def __init__(self, rpc_id: str, address_samples: list[ProtoAddressSample]) -> None:
-        self.rpc_id = rpc_id
-        self.address_samples = address_samples
-
-    def __enter__(self):
-        self.tracked_event = asyncio.Event()
-        self.event_loop = asyncio.get_event_loop()
-        self.read_channel, self.write_channel = Pipe(duplex=False)
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # Cleanup any open channels and pending events
-        self.tracked_event.set()
-        self.event_loop.remove_reader(self.read_channel)
-        self.read_channel.close()
-        self.write_channel.close()
-
-    def create_and_send_worker_input(self, queue: Queue) -> None:
-        logger.info("Creating and sending worker input for RPC-%s", self.rpc_id)
-        queue.put_nowait(
-            WorkerInput(rpc_id=self.rpc_id,
-                        address_samples=self.address_samples,
-                        write_channel=self.write_channel)
-        )
-
-    async def wait_for_results(self, timeout: float) -> Any:
-        async with asyncio.timeout(timeout):
-            self.event_loop.add_reader(self.read_channel, self.tracked_event.set)
-            await self.tracked_event.wait()
-
-        logger.info("Received results from worker for RPC-%s", self.rpc_id)
-        return self.read_channel.recv()
-
-
-@dataclass(frozen=True, slots=True)
-class WorkerInput:
-    """
-    A data structure to hold the input data for a worker process.
-
-    Attributes:
-        rpc_id (str): The RPC ID string.
-        address_samples (list[ProtoAddressSample]): The list of address samples to process.
-        write_channel (Connection): The pipe connection channel to write the output onto.
-    """
-    rpc_id: str
-    address_samples: list[ProtoAddressSample]
-    write_channel: Connection
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.write_channel.close()
-
-    def send(self, obj) -> None:
-        try:
-            self.write_channel.send(obj)
-        except BrokenPipeError:
-            logger.exception("Worker encountered an exception while sending data")
 
 
 class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
@@ -112,39 +27,9 @@ class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
     """
 
     def __init__(self, server_config: RunServerConfig = RunServerConfig()):
-        self._server_config = server_config
-        self._pipeline_processes: list[Process] = []
-        self._global_queue = Queue(self._server_config.max_queue_size)
-        self._shutting_down = False
-        self._replace_lock = asyncio.Lock()
-        # Create the pipeline processes and pass global queue as arg
-        logger.info("Initializing worker processes")
-        _ = [self._pipeline_processes.append(self._start_worker())
-             for _ in range(self._server_config.pipeline_max_instances)]
-        logger.info("All worker processes ready")
-        # Start background health monitor
-        logger.info("Starting worker monitor")
-        self._monitor_task = asyncio.ensure_future(self._monitor_workers())
-
-    @staticmethod
-    def _pipeline_process_func(global_queue: Queue, batch_size: int) -> None:
-        """Create worker pipeline task that waits for address samples to process."""
-        unset_logging_config()
-        pipeline = AddressStructuringPipeline(batch_size=batch_size)
-        try:
-            while True:
-                # Use context management to handle worker input
-                with global_queue.get() as worker_input:
-                    set_logging_config(worker_input.rpc_id)
-                    reader = ProtoReader(worker_input.address_samples)
-                    results = [result for result in pipeline.run(reader)]
-                    worker_input.send(results)
-                    unset_logging_config()
-        except Exception as e:
-            logger.exception("Worker encountered an error whilst processing addresses")
-            if worker_input:
-                worker_input.send_and_close_channel(e)
-            raise e
+        self._server_config: RunServerConfig = server_config
+        self._input_queue: Queue = Queue(self._server_config.max_queue_size)
+        self.monitor: WorkerMonitor = WorkerMonitor(self._input_queue, self._server_config)
 
     async def _process_samples(self, address_samples: list[ProtoAddressSample], context: ServicerContext) -> Any:
         """
@@ -159,7 +44,7 @@ class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
 
         try:
             with ProcessAddressTask(rpc_id=rpc_id, address_samples=address_samples) as task_input:
-                task_input.create_and_send_worker_input(self._global_queue)
+                task_input.send_worker_input(self._input_queue)
                 results = await task_input.wait_for_results(self._server_config.processing_timeout_seconds)
 
                 # Did the worker crash?
@@ -261,88 +146,3 @@ class AddressStructuringServicer(pb2_grpc_AddressStructuringServicer):
                 hash_id=result.hash_id,
                 matches=matches,
             )
-
-    def _start_worker(self) -> Process:
-        """Start a new pipeline worker process."""
-        process = Process(
-            target=self._pipeline_process_func,
-            args=(self._global_queue, self._server_config.batch_size),
-        )
-        process.start()
-        logger.info("Started worker process pid=%d", process.pid)
-        return process
-
-    async def _detect_dead_workers(self, replace: bool = False) -> tuple[int, int]:
-        """
-        Check all workers to see if any have died.
-        If 'replace' is set to True, then replace these dead workers with new ones.
-
-        Returns the number of dead workers detected/replaced.
-        """
-        async with self._replace_lock:
-            detected = 0
-            for i, process in enumerate(self._pipeline_processes):
-                try:
-                    if not process.is_alive():
-                        exit_code = process.exitcode
-                        process_id = process.pid
-                        logger.warning(
-                            "Worker process pid=%d died (exitcode=%s)",
-                            process_id, exit_code,
-                        )
-                        process.close()
-                        if replace:
-                            logger.info("Replacing worker pid=%d", process_id)
-                            self._pipeline_processes[i] = self._start_worker()
-                        detected += 1
-                # Triggered if process was forcefully closed or an error occurred during process info retrieval
-                except ValueError:
-                    logger.exception("Detected worker process that was forcefully closed")
-                    process.close()
-                    if replace:
-                        logger.info("Replacing killed worker")
-                        self._pipeline_processes[i] = self._start_worker()
-                    detected += 1
-            if replace:
-                # Replace any missing processes
-                for _ in range(i + 1, self._server_config.pipeline_max_instances):
-                    self._pipeline_processes.append(self._start_worker())
-                    detected += 1
-            return detected, len(self._pipeline_processes)
-
-    async def _monitor_workers(self) -> None:
-        """Periodically check worker health and replace dead workers."""
-        # Wait for the initial process to start
-        await asyncio.sleep(self._server_config.monitor_startup_time_seconds)
-        # Perform initial check to ensure that startup was successful
-        detected_dead_workers, total_workers = await self._detect_dead_workers(False)
-        # Kill server if initial processes are not alive after startup delay
-        if detected_dead_workers or total_workers != self._server_config.pipeline_max_instances:
-            logger.critical(
-                "Detected %d initial worker processes that were unable to start out of %d total workers",
-                detected_dead_workers, total_workers
-            )
-            exit(1)
-        logger.info("Worker monitor ready")
-        while not self._shutting_down:
-            try:
-                await asyncio.sleep(self._server_config.monitor_check_interval_seconds)
-                if self._shutting_down:
-                    break
-                replaced, _ = await self._detect_dead_workers(replace=True)
-                if replaced:
-                    logger.info("Replaced %d dead worker(s)", replaced)
-            except asyncio.CancelledError:
-                break
-            except:
-                logger.exception("Worker monitor encountered an error, will retry next cycle")
-
-    async def handle_shutdown(self) -> None:
-        """Handle shutdown by terminating all worker processes and closing the global queue."""
-        self._shutting_down = True
-        self._monitor_task.cancel()
-        self._global_queue.close()
-        for process in self._pipeline_processes:
-            if process.is_alive():
-                process.terminate()
-                process.join()

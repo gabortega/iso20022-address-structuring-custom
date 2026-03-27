@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from grpc_api.server.address_structuring_servicer import ProcessAddressTask, WorkerInput
+from grpc_api.server.process_address_tasks import WorkerInput, ProcessAddressTask
 
 
 class TestProcessAddressTaskContextManager:
@@ -50,7 +50,7 @@ class TestCreateAndSendWorkerInput:
         queue = Mock()
 
         with task:
-            task.create_and_send_worker_input(queue)
+            task.send_worker_input(queue)
 
         queue.put_nowait.assert_called_once()
         worker_input = queue.put_nowait.call_args[0][0]

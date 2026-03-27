@@ -6,9 +6,11 @@ import logging.config
 import signal
 
 import grpc
+from grpc_health.v1 import health_pb2_grpc
 
 from data_structuring.config import RunServerConfig, DEFAULT_LOGGING_CONFIG
 from grpc_api.generated import pb2_grpc_add_AddressStructuringServicer_to_server
+from grpc_api.health.health_servicer import AddressStructuringHealthServicer
 from grpc_api.interceptor.rpc_interceptor import RPCInterceptor
 from grpc_api.server.address_structuring_servicer import AddressStructuringServicer
 
@@ -28,9 +30,9 @@ async def _serve() -> None:
         interceptors=[RPCInterceptor()]
     )
     logger.info("Initializing AddressStructuringServicer")
-    servicer = AddressStructuringServicer(server_config=server_args)
+    address_structuring_servicer = AddressStructuringServicer(server_config=server_args)
     pb2_grpc_add_AddressStructuringServicer_to_server(
-        servicer, server
+        address_structuring_servicer, server
     )
 
     # Bind server address and port
@@ -55,12 +57,17 @@ async def _serve() -> None:
     else:
         server.add_insecure_port(bind_address)
 
+    # Add a health check servicer
+    health_servicer = AddressStructuringHealthServicer(address_structuring_servicer)
+    health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)
+
     # Add graceful shutdown timer
     async def _shutdown():
         logger.info("Shutting down gRPC server (grace=%ds)...", server_args.shutdown_grace_seconds)
         await server.stop(grace=server_args.shutdown_grace_seconds)
-        await servicer.handle_shutdown()
+        await address_structuring_servicer.monitor.handle_shutdown()
 
+    # Add SIGINT/SIGTERM handler
     event_loop = asyncio.get_event_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         event_loop.add_signal_handler(sig, lambda: asyncio.create_task(_shutdown()))

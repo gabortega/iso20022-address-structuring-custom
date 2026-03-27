@@ -297,13 +297,47 @@ class RunServerConfig(BaseSettingsISO):
     # Server settings
     hostname: str = Field(default="127.0.0.1", description="Server hostname")
     port: int = Field(default=8080, description="Server port")
-    monitor_startup_time_seconds: float = 5.0
+
+    # Time to allow for graceful server shutdown
     shutdown_grace_seconds: int = 5
+
+    # Delay before a stream is aborted with a timeout error
     stream_timeout_seconds: int = 300
+
+    # Delay before a stream is aborted with a timeout error
     processing_timeout_seconds: int = 300
+
+    # Maximum number of worker processes
     pipeline_max_instances: int = 2
+
+    # Worker process startup can take time depending on resources and reference database size.
+    # So two different startup times are required:
+    # This first delay defines an initial startup time to ensure the worker processes
+    # were started properly and that no obvious configuration issues persist.
+    monitor_initial_startup_time_seconds: float = 5.0
+    # This second delay defines the startup time for the complete startup of the servicer
+    # where the servicer, monitor and all worker processes are ready to receive requests.
+    monitor_full_startup_time_seconds: float = 30.0
+
+    # Interval at which the monitor will check for any dead or stalled worker processes
     monitor_check_interval_seconds: float = 0.3
+
+    # Maximum size of the worker input queue
     max_queue_size: int = 10
+
+    # A worker that has previously completed at least one task but has not sent a health event
+    # within this window is considered stalled and will be terminated and replaced.
+    # Set to 0.0 to disable stall detection.
+    worker_stall_timeout_seconds: float = 600.0
+    # Interval at which workers with no work (i.e.: are idle) send health events
+    worker_idle_health_interval: float = 10.0
+
+    # Timeout for a worker process to terminate after sending SIGTERM
+    worker_sigterm_timeout_seconds: float = 5.0
+    # Timeout for a worker process to terminate after sending SIGKILL
+    worker_sigkill_timeout_seconds: float = 2.0
+
+    # gRPC asyncio server params
     grpc_compression: Compression = Compression.Gzip
     grpc_maximum_concurrent_rpc: int = 0
 

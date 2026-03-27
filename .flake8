@@ -7,7 +7,7 @@ max-line-length = 122
 per-file-ignores =
     # imported but unused
     __init__.py: F401
+    # ... and do not use bare 'except'
+    worker_monitor.py: F401, E722
     # invalid escape sequence
     BusinessSampler.py: W605
-    # do not use bare 'except'
-    address_structuring_servicer.py: E722
