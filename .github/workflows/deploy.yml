@@ -56,13 +56,16 @@ jobs:
           python -m venv venv
           source venv/bin/activate
 
-      - name: Install dependencies
+      - name: Install testing dependencies
         run: |
-          pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
       - name: Run flake8
         run: python -m flake8 data_structuring grpc_api tests
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
 
       - name: Run preprocessing scripts
         run: |
