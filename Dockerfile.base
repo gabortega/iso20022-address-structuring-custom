@@ -1,0 +1,21 @@
+FROM redhat/ubi10-minimal:latest
+
+# Install necessary utilities
+RUN microdnf update && \
+    microdnf -y install gcc openssl-devel bzip2-devel libffi-devel zlib-devel wget tar make shadow-utils && \
+    microdnf clean all
+
+# Download and install Python 3.13.4
+RUN cd /usr/src && \
+    wget https://www.python.org/ftp/python/3.13.4/Python-3.13.4.tgz && \
+    tar xzf Python-3.13.4.tgz && \
+    cd Python-3.13.4 && \
+    ./configure --enable-optimizations && \
+    make altinstall && \
+    ln -s /usr/local/bin/python3.13 /usr/bin/python3.13 && \
+    ln -s /usr/local/bin/pip3.13 /usr/bin/pip3.13 && \
+    cd /usr/src && \
+    rm -rf Python-3.13.4.tgz Python-3.13.4
+
+# Verify Python installation
+RUN python3.13 --version
