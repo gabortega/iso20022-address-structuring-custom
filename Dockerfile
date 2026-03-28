@@ -37,8 +37,8 @@ COPY resources/ ./resources/
 
 # Remove standalone runner
 RUN rm -f ./data_structuring/run.py
-# Remove raw dependencies
-RUN rm -rf ./resources/raw
+# Remove unneeded resource directories
+RUN rm -rf ./resources/input ./resources/swift_address_structuring_resources.egg-info ./resources/raw
 
 RUN chown -R 1001:0 /app && chmod -R g=u /app
 
