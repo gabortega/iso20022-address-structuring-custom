@@ -56,16 +56,14 @@ jobs:
           python -m venv venv
           source venv/bin/activate
 
-      - name: Install testing dependencies
-        run: |
-          pip install -r requirements-dev.txt
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
 
       - name: Run flake8
         run: python -m flake8 data_structuring grpc_api tests
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run preprocessing scripts
         run: |
@@ -78,6 +76,41 @@ jobs:
       - name: Remove raw dependencies
         run: rm -rf resources/raw
 
+      - name: Zip artifact for testing and deployment
+        run: zip -r release.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-app
+          path: release.zip
+
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact
+        run: unzip release.zip
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install testing dependencies
+        run: pip install -r requirements-test.txt
+
       - name: Run unit tests
         run: pytest tests/unit
 
@@ -87,12 +120,20 @@ jobs:
   push-image:
     name: Push to Azure Container Registry
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: azure-containers
 
     steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: python-app
+
+      - name: Unzip artifact
+        run: unzip release.zip
+
       - name: Login to Azure Container Registry
         uses: docker/login-action@v3
         with:
