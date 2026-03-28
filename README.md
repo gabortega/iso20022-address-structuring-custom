@@ -1,3 +1,5 @@
+[![.github/workflows/deploy.yml](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/deploy.yml/badge.svg)](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/deploy.yml)
+
 \##################################################################
 
 **DISCLAIMER**: This repository represents a forked implementation of the Swift Address structuring model, maintained

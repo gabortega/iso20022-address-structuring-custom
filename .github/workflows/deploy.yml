@@ -12,8 +12,9 @@ concurrency:
 
 env:
   PYTHON_VERSION: '3.13'
-  APP_NAME: 'iso20022-address-structuring-grpc'
+  APP_NAME: 'iso-address-structuring-grpc'
   IMAGE_NAME: 'iso20022-address-structuring-grpc'
+  ARTIFACT_NAME: 'iso-address-structuring-grpc-${{ github.run_id }}'
 
 jobs:
   build:
@@ -86,7 +87,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: python-app-${{ github.run_id }}
+          name: ${{ env.ARTIFACT_NAME }}
           path: release.zip
 
   unit-test:
@@ -99,7 +100,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v7
         with:
-          name: python-app-${{ github.run_id }}
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Unzip artifact
         run: unzip release.zip
@@ -128,7 +129,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v7
         with:
-          name: python-app-${{ github.run_id }}
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Unzip artifact
         run: unzip release.zip
@@ -159,7 +160,7 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v6
         with:
-          name: python-app-${{ github.run_id }}
+          name: ${{ env.ARTIFACT_NAME }}
 
       - name: Unzip artifact
         run: unzip release.zip
@@ -178,3 +179,30 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+  deploy-container:
+    name: Deploy Azure Container App
+    runs-on: ubuntu-latest
+    needs: push-image
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    environment:
+      name: azure-containers
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acrName: ${{ secrets.REGISTRY_NAME }}
+          acrUsername: ${{ secrets.REGISTRY_USERNAME }}
+          acrPassword: ${{ secrets.REGISTRY_PASSWORD }}
+          containerAppName: ${{ env.APP_NAME }}
+          resourceGroup: ${{ secrets.RESOURCE_GROUP }}
+          imageToDeploy: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+      - name: Logout of Azure
+        run: az logout
