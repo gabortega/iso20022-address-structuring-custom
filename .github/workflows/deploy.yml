@@ -1,4 +1,4 @@
-name: Build and Deploy Python to Azure App Service (Linux)
+name: Build and Deploy Python to Azure Container App
 
 on:
   push:
@@ -7,12 +7,15 @@ on:
     branches: [ develop ]
 
 env:
-  PYTHON_VERSION: '3.13'                              # Change to your target version
-  AZURE_APP_NAME: 'iso20022-address-structuring-grpc' # Change to your App Service name
+  PYTHON_VERSION: '3.13'
+  APP_NAME: 'iso20022-address-structuring-grpc'
+  IMAGE_NAME: 'iso20022-address-structuring-grpc'
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +57,9 @@ jobs:
           source venv/bin/activate
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Run flake8
         run: python -m flake8 data_structuring grpc_api tests
@@ -76,43 +81,26 @@ jobs:
       - name: Run integration tests
         run: pytest tests/integration
 
-      - name: Zip artifact for deployment
-        run: zip -r release.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: python-app
-          path: release.zip
-
-  deploy:
+  push-image:
+    name: Push to Azure Container Registry
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
-      name: production
-      url: ${{ steps.deploy.outputs.webapp-url }}
+      name: azure-containers
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v4
+      - name: Login to Azure Container Registry
+        uses: docker/login-action@v3
         with:
-          name: python-app
+          registry: ${{ secrets.REGISTRY_NAME }}.azurecr.io
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
 
-      - name: Unzip artifact
-        run: unzip release.zip
-
-      - name: Login to Azure
-        uses: azure/login@v2
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Deploy to Azure App Service
-        id: deploy
-        uses: azure/webapps-Deploy@v3
-        with:
-          app-name: ${{ env.AZURE_APP_NAME }}
-          package: .
-
-      - name: Logout of Azure
-        run: az logout
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest

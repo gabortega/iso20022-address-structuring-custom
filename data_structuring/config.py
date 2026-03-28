@@ -357,6 +357,9 @@ class RunServerConfig(BaseSettingsISO):
                                         description="Path to the logging configuration file",
                                         alias=AliasChoices('l', 'logging_config'))
 
+    # Set prefix
+    model_config = SettingsConfigDict(env_prefix='ds_grpc_', cli_parse_args=True, cli_ignore_unknown_args=True)
+
 
 class PreprocessCLIConfig(BaseSettingsISO):
     # I/O GeoNames towns and countries
