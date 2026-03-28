@@ -1,4 +1,5 @@
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -22,10 +23,11 @@ SERVER_KEY = SSL_DIR / "server-key.pem"
 CLIENT_CERT = SSL_DIR / "client.pem"
 CLIENT_KEY = SSL_DIR / "client-key.pem"
 
-# Ports for the different server instances (use high ports to avoid conflicts)
-INSECURE_PORT = 50150
-TLS_PORT = 50151
-MTLS_PORT = 50152
+
+def _get_free_port() -> int:
+    with socket.socket() as sock:
+        sock.bind(('', 0))
+        return sock.getsockname()[1]
 
 
 def _start_server(port: int,
@@ -73,7 +75,7 @@ def _start_server(port: int,
                     channel_function = _mtls_channel
             else:
                 channel_function = _insecure_channel
-            with channel_function() as channel:
+            with channel_function(port) as channel:
                 grpc.channel_ready_future(channel).result(timeout=1)
             return process
         except grpc.FutureTimeoutError:
@@ -100,22 +102,22 @@ def _stop_server(proc: Popen) -> None:
             proc.wait()
 
 
-def _insecure_channel() -> grpc.Channel:
-    return grpc.insecure_channel(f"127.0.0.1:{INSECURE_PORT}")
+def _insecure_channel(port: int) -> grpc.Channel:
+    return grpc.insecure_channel(f"127.0.0.1:{port}")
 
 
-def _tls_channel() -> grpc.Channel:
+def _tls_channel(port: int) -> grpc.Channel:
     channel_creds = grpc.ssl_channel_credentials(root_certificates=CA_CERT.read_bytes())
-    return grpc.secure_channel(f"127.0.0.1:{TLS_PORT}", channel_creds)
+    return grpc.secure_channel(f"127.0.0.1:{port}", channel_creds)
 
 
-def _mtls_channel() -> grpc.Channel:
+def _mtls_channel(port: int) -> grpc.Channel:
     channel_creds = grpc.ssl_channel_credentials(
         root_certificates=CA_CERT.read_bytes(),
         private_key=CLIENT_KEY.read_bytes(),
         certificate_chain=CLIENT_CERT.read_bytes(),
     )
-    return grpc.secure_channel(f"127.0.0.1:{MTLS_PORT}", channel_creds)
+    return grpc.secure_channel(f"127.0.0.1:{port}", channel_creds)
 
 
 def _generate_samples(hash_id_prefix: str) -> Iterable[pb2_AddressSample]:
@@ -142,14 +144,15 @@ def _assert_results(results: list[pb2_ProcessAddressResult], hash_id_prefix: str
 class TestGrpcServer:
 
     @pytest.fixture(scope="class")
-    def insecure_server(self) -> Generator[Popen, Any, None]:
-        proc = _start_server(port=INSECURE_PORT)
-        yield proc
+    def insecure_server(self) -> Generator[int, Any, None]:
+        port = _get_free_port()
+        proc = _start_server(port=port)
+        yield port
         _stop_server(proc)
 
-    def test_connection_succeeds(self, insecure_server: Popen) -> None:
+    def test_connection_succeeds(self, insecure_server: int) -> None:
         """Client without any certificates can communicate."""
-        with _insecure_channel() as channel:
+        with _insecure_channel(insecure_server) as channel:
             stub = pb2_grpc_AddressStructuringStub(channel)
             _assert_results(
                 list(stub.ProcessAddress(_generate_samples("insecure"))),
@@ -159,22 +162,23 @@ class TestGrpcServer:
 class TestGrpcServerTLS:
 
     @pytest.fixture(scope="class")
-    def tls_server(self) -> Generator[Popen, Any, None]:
-        proc = _start_server(port=TLS_PORT, ssl_enabled=True)
-        yield proc
+    def tls_server(self) -> Generator[int, Any, None]:
+        port = _get_free_port()
+        proc = _start_server(port=port, ssl_enabled=True)
+        yield port
         _stop_server(proc)
 
-    def test_tls_connection_succeeds(self, tls_server: Popen):
+    def test_tls_connection_succeeds(self, tls_server: int):
         """Client with the correct CA cert can communicate over TLS."""
-        with _tls_channel() as channel:
+        with _tls_channel(tls_server) as channel:
             stub = pb2_grpc_AddressStructuringStub(channel)
             _assert_results(
                 list(stub.ProcessAddress(_generate_samples("tls"))),
                 hash_id_prefix="tls")
 
-    def test_tls_rejects_insecure_client(self, tls_server: Popen):
+    def test_tls_rejects_insecure_client(self, tls_server: int):
         """An insecure client cannot complete an RPC against a TLS server."""
-        with _insecure_channel() as channel:
+        with _insecure_channel(tls_server) as channel:
             stub = pb2_grpc_AddressStructuringStub(channel)
             with pytest.raises(grpc.RpcError):
                 list(stub.ProcessAddress(_generate_samples("tls")))
@@ -183,22 +187,23 @@ class TestGrpcServerTLS:
 class TestGrpcServerMutualTLS:
 
     @pytest.fixture(scope="class")
-    def mtls_server(self) -> Generator[Popen, Any, None]:
-        proc = _start_server(port=MTLS_PORT, ssl_enabled=True, ca_cert_path=CA_CERT)
-        yield proc
+    def mtls_server(self) -> Generator[int, Any, None]:
+        port = _get_free_port()
+        proc = _start_server(port=port, ssl_enabled=True, ca_cert_path=CA_CERT)
+        yield port
         _stop_server(proc)
 
-    def test_mtls_with_valid_client_cert(self, mtls_server: Popen):
+    def test_mtls_with_valid_client_cert(self, mtls_server: int):
         """Client presenting a valid CA-signed certificate succeeds over mTLS."""
-        with _mtls_channel() as channel:
+        with _mtls_channel(mtls_server) as channel:
             stub = pb2_grpc_AddressStructuringStub(channel)
             _assert_results(
                 list(stub.ProcessAddress(_generate_samples("mtls"))),
                 hash_id_prefix="mtls")
 
-    def test_mtls_rejects_client_without_cert(self, mtls_server: Popen):
+    def test_mtls_rejects_client_without_cert(self, mtls_server: int):
         """Client without a certificate is rejected by the mTLS server."""
-        with _insecure_channel() as channel:
+        with _insecure_channel(mtls_server) as channel:
             stub = pb2_grpc_AddressStructuringStub(channel)
             with pytest.raises(grpc.RpcError):
                 list(stub.ProcessAddress(_generate_samples("mtls")))

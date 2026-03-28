@@ -1,4 +1,4 @@
-name: Build and Deploy Python to Azure Container App
+name: Build and Deploy to Azure Container App
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.event_name == 'pull_request'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -51,7 +51,7 @@ jobs:
           unzip resources/raw/postcodes/NL_full.csv.zip -d resources/raw/postcodes
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -84,7 +84,7 @@ jobs:
         run: zip -r release.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-app-${{ github.run_id }}
           path: release.zip
@@ -97,7 +97,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: python-app-${{ github.run_id }}
 
@@ -105,7 +105,7 @@ jobs:
         run: unzip release.zip
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -126,7 +126,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: python-app-${{ github.run_id }}
 
@@ -134,7 +134,7 @@ jobs:
         run: unzip release.zip
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
@@ -150,14 +150,14 @@ jobs:
   push-image:
     name: Push to Azure Container Registry
     runs-on: ubuntu-latest
-    needs: [unit-test, integration-test]
+    needs: [ unit-test, integration-test ]
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     environment:
       name: azure-containers
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           name: python-app-${{ github.run_id }}
 
@@ -165,14 +165,14 @@ jobs:
         run: unzip release.zip
 
       - name: Login to Azure Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ secrets.REGISTRY_NAME }}.azurecr.io
           username: ${{ secrets.REGISTRY_USERNAME }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
