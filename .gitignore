@@ -1,14 +1,15 @@
-### IntelliJ IDEA ###
-.idea/*
-*.iws
+# IntelliJ IDEA
+.idea
 *.iml
 *.ipr
+*.iws
+.ijwb
 
 ### VS Code ###
-.vscode/
+.vscode
 
 ### Mac OS ###
-.DS_Store%
+.DS_Store
 
 ### Model Output ###
 *.csv

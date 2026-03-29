@@ -1,14 +1,15 @@
-name: Build and Deploy to Azure Container App
+name: Build, Test and Deploy to Azure Container App (develop)
 
 on:
   push:
-    branches: [ develop ]
-  pull_request:
     branches: [ develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 env:
   PYTHON_VERSION: '3.13'
@@ -56,11 +57,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Create and activate virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
 
       - name: Install dev dependencies
         run: pip install -r requirements-dev.txt
@@ -111,7 +107,7 @@ jobs:
           outputs: type=docker,dest=${{ runner.temp }}/${{ env.BASE_IMAGE_NAME }}.tar
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ env.BASE_IMAGE_NAME }}
           path: ${{ runner.temp }}/${{ env.BASE_IMAGE_NAME }}.tar
@@ -124,7 +120,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -153,7 +149,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -184,7 +180,7 @@ jobs:
 
     steps:
       - name: Download Python code artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.ARTIFACT_NAME }}
 
@@ -192,7 +188,7 @@ jobs:
         run: unzip release.zip
 
       - name: Download base image artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v8
         with:
           name: ${{ env.BASE_IMAGE_NAME }}
           path: ${{ runner.temp }}

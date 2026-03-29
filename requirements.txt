@@ -1,5 +1,6 @@
 anyascii==0.3.3
 orjson==3.11.2
+--extra-index-url https://download.pytorch.org/whl/cpu
 torch==2.8.0
 fuzzysearch==0.7.3
 polars==1.34.0
