@@ -1,4 +1,4 @@
-[![.github/workflows/deploy.yml](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/deploy.yml/badge.svg)](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/deploy.yml)
+[![CI/CD to ACR/ACA (develop)](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/develop-build-deploy.yml/badge.svg)](https://github.com/gabortega/iso20022-address-structuring-grpc/actions/workflows/develop-build-deploy.yml)
 
 \##################################################################
 
