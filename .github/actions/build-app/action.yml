@@ -1,0 +1,83 @@
+name: Build Python Application
+description:
+  'Download all required dependencies and build the Python application'
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+    default: '3.13'
+  artifact-name:
+    description: 'Name of the artifact that will be uploaded'
+    required: true
+  artifact-file-name:
+    description: 'Name of the artifact archive file'
+    required: true
+    default: 'app'
+runs:
+  using: "composite"
+  steps:
+    - name: Download dependencies
+      shell: bash
+      run: |
+        wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/allCountries.zip
+        wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/countryInfo.txt
+        wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/alternateNamesV2.zip
+
+        wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/allCountries.zip
+        wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/CA_full.csv.zip
+        wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/GB_full.csv.zip
+        wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/NL_full.csv.zip
+
+        wget -nv -P resources/raw/restCountries \
+        https://gitlab.com/restcountries/restcountries/-/raw/master/src/main/resources/countriesV3.1.json
+
+    - name: Explode dependencies
+      shell: bash
+      run: |
+        unzip -o resources/raw/geonames/allCountries.zip -d resources/raw/geonames
+        unzip -o resources/raw/geonames/alternateNamesV2.zip -d resources/raw/geonames
+
+        unzip -o resources/raw/postcodes/allCountries.zip -d resources/raw/postcodes
+        unzip -o resources/raw/postcodes/CA_full.csv.zip -d resources/raw/postcodes
+        unzip -o resources/raw/postcodes/GB_full.csv.zip -d resources/raw/postcodes
+        unzip -o resources/raw/postcodes/NL_full.csv.zip -d resources/raw/postcodes
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dev dependencies
+      shell: bash
+      run: pip install -r requirements-dev.txt
+
+    - name: Run flake8
+      shell: bash
+      run: python -m flake8 data_structuring grpc_api tests
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r requirements.txt
+
+    - name: Run preprocessing scripts
+      shell: bash
+      run: |
+        export PYTHONPATH=$(pwd)
+        python data_structuring/preprocessing/preprocess_geonames_countries.py
+        python data_structuring/preprocessing/preprocess_geonames_towns.py
+        python data_structuring/preprocessing/preprocess_geonames_postcodes.py
+        python data_structuring/preprocessing/preprocess_rest_countries.py
+
+    - name: Remove raw dependencies
+      shell: bash
+      run: rm -rf resources/raw
+
+    - name: Zip artifact for testing and deployment
+      shell: bash
+      run: zip -r ${{ inputs.artifact-file-name }}.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ env.ARTIFACT_NAME }}
+        path: ${{ inputs.artifact-file-name }}.zip

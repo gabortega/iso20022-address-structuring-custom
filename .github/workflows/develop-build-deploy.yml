@@ -13,14 +13,13 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.13'
-  APP_NAME: 'iso-address-structuring-grpc'
-  IMAGE_NAME: 'iso20022-address-structuring-grpc'
   ARTIFACT_NAME: 'iso-address-structuring-grpc-${{ github.run_id }}'
   BASE_IMAGE_NAME: 'base-image-${{ github.run_id }}'
+  FINAL_IMAGE_NAME: 'iso20022-address-structuring-grpc'
 
 jobs:
   build-python:
-    name: Build Python dependencies
+    name: Build Python Application
     runs-on: ubuntu-latest
 
     steps:
@@ -28,63 +27,9 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download dependencies
-        run: |
-          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/allCountries.zip
-          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/countryInfo.txt
-          wget -nv -P resources/raw/geonames https://download.geonames.org/export/dump/alternateNamesV2.zip
-          
-          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/allCountries.zip
-          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/CA_full.csv.zip
-          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/GB_full.csv.zip
-          wget -nv -P resources/raw/postcodes https://download.geonames.org/export/zip/NL_full.csv.zip
-          
-          wget -nv -P resources/raw/restCountries \
-          https://gitlab.com/restcountries/restcountries/-/raw/master/src/main/resources/countriesV3.1.json
-
-      - name: Explode dependencies
-        run: |
-          unzip resources/raw/geonames/allCountries.zip -d resources/raw/geonames
-          unzip resources/raw/geonames/alternateNamesV2.zip -d resources/raw/geonames
-          
-          unzip resources/raw/postcodes/allCountries.zip -d resources/raw/postcodes
-          unzip resources/raw/postcodes/CA_full.csv.zip -d resources/raw/postcodes
-          unzip resources/raw/postcodes/GB_full.csv.zip -d resources/raw/postcodes
-          unzip resources/raw/postcodes/NL_full.csv.zip -d resources/raw/postcodes
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: ./.github/actions/build-app
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
-
-      - name: Run flake8
-        run: python -m flake8 data_structuring grpc_api tests
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run preprocessing scripts
-        run: |
-          export PYTHONPATH=$(pwd)
-          python data_structuring/preprocessing/preprocess_geonames_countries.py
-          python data_structuring/preprocessing/preprocess_geonames_towns.py
-          python data_structuring/preprocessing/preprocess_geonames_postcodes.py
-          python data_structuring/preprocessing/preprocess_rest_countries.py
-
-      - name: Remove raw dependencies
-        run: rm -rf resources/raw
-
-      - name: Zip artifact for testing and deployment
-        run: zip -r release.zip . --exclude "*.git*" --exclude "venv/*" --exclude "__pycache__/*"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.ARTIFACT_NAME }}
-          path: release.zip
+          artifact-name: ${{ env.ARTIFACT_NAME }}
 
   build-base-image:
     name: Build base Docker image
@@ -93,22 +38,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Build base image and export
-        uses: docker/build-push-action@v7
+      - uses: ./.github/actions/build-base-image
         with:
-          context: .
-          file: ./Dockerfile.base
-          tags: ${{ env.BASE_IMAGE_NAME }}:${{ github.sha }}
-          outputs: type=docker,dest=${{ runner.temp }}/${{ env.BASE_IMAGE_NAME }}.tar
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.BASE_IMAGE_NAME }}
-          path: ${{ runner.temp }}/${{ env.BASE_IMAGE_NAME }}.tar
+          base-image-name: ${{ env.BASE_IMAGE_NAME }}
+          base-image-tag: ${{ github.sha }}
 
   unit-test:
     name: Run unit tests
@@ -116,27 +49,11 @@ jobs:
     needs: build-python
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/run-unit-tests
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-
-      - name: Unzip artifact
-        run: unzip release.zip
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Install testing dependencies
-        run: pip install -r requirements-test.txt
-
-      - name: Run unit tests
-        run: pytest -n auto tests/unit
+          artifact-name: ${{ env.ARTIFACT_NAME }}
 
   integration-test:
     name: Run integration tests
@@ -144,27 +61,11 @@ jobs:
     needs: build-python
 
     steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/run-integration-tests
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-
-      - name: Unzip artifact
-        run: unzip release.zip
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Install testing dependencies
-        run: pip install -r requirements-test.txt
-
-      - name: Run integration tests
-        run: pytest tests/integration
+          artifact-name: ${{ env.ARTIFACT_NAME }}
 
   push-image:
     name: Push to Azure Container Registry
@@ -174,40 +75,18 @@ jobs:
       name: azure-containers
 
     steps:
-      - name: Download Python code artifact
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/push-docker-image
         with:
-          name: ${{ env.ARTIFACT_NAME }}
-
-      - name: Unzip Python code artifact
-        run: unzip release.zip
-
-      - name: Download base image artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: ${{ env.BASE_IMAGE_NAME }}
-          path: ${{ runner.temp }}
-
-      - name: Load base image
-        run: docker load --input ${{ runner.temp }}/${{ env.BASE_IMAGE_NAME }}.tar
-
-      - name: Login to Azure Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ${{ secrets.REGISTRY_NAME }}.azurecr.io
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile.final
-          build-args: BASE_IMAGE=${{ env.BASE_IMAGE_NAME }}:${{ github.sha }}
-          push: true
-          tags: |
-            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
-            ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          artifact-name: ${{ env.ARTIFACT_NAME }}
+          base-image-name: ${{ env.BASE_IMAGE_NAME }}
+          base-image-tag: ${{ github.sha }}
+          final-image-name: ${{ env.FINAL_IMAGE_NAME }}
+          final-image-tag: ${{ github.sha }}
+          registry-url: ${{ secrets.REGISTRY_URL }}
+          registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
 
   deploy-container:
     name: Deploy Azure Container App
@@ -217,20 +96,47 @@ jobs:
       name: azure-containers
 
     steps:
+      - uses: actions/checkout@v6
+
       - name: Login to Azure
         uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v2
+      - uses: ./.github/actions/deploy-on-azure
         with:
-          acrName: ${{ secrets.REGISTRY_NAME }}
-          acrUsername: ${{ secrets.REGISTRY_USERNAME }}
-          acrPassword: ${{ secrets.REGISTRY_PASSWORD }}
-          containerAppName: ${{ env.APP_NAME }}
-          resourceGroup: ${{ secrets.RESOURCE_GROUP }}
-          imageToDeploy: ${{ secrets.REGISTRY_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          final-image-name: ${{ env.FINAL_IMAGE_NAME }}
+          final-image-tag: ${{ github.sha }}
+          container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
+          resource-group: ${{ secrets.RESOURCE_GROUP }}
+          registry-url: ${{ secrets.REGISTRY_URL }}
+          registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          registry-password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Logout of Azure
+        shell: bash
+        run: az logout
+
+  remove-prev-images:
+    name: Remove previous Docker images
+    runs-on: ubuntu-latest
+    needs: deploy-container
+    environment:
+      name: azure-containers
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Login to Azure
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - uses: ./.github/actions/delete-prev-images
+        with:
+          final-image-name: ${{ env.FINAL_IMAGE_NAME }}
+          registry-name: ${{ secrets.REGISTRY_NAME }}
+
+      - name: Logout of Azure
+        shell: bash
         run: az logout

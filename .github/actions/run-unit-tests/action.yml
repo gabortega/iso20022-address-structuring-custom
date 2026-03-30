@@ -1,0 +1,43 @@
+name: Run unit tests in parallel
+description:
+  'Download the previously built Python application and run the unit tests in parallel'
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+    default: '3.13'
+  artifact-name:
+    description: 'Name of the artifact that will be downloaded'
+    required: true
+  artifact-file-name:
+    description: 'Name of the artifact archive file'
+    required: true
+    default: 'app'
+runs:
+  using: "composite"
+  steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+
+    - name: Unzip artifact
+      shell: bash
+      run: unzip -o ${{ inputs.artifact-file-name }}.zip
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r requirements.txt
+
+    - name: Install testing dependencies
+      shell: bash
+      run: pip install -r requirements-test.txt
+
+    - name: Run unit tests
+      shell: bash
+      run: pytest -n auto tests/unit

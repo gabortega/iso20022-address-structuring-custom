@@ -1,0 +1,78 @@
+name: Push to Azure Container Registry
+description:
+  'Download all required dependencies and build the Python application'
+inputs:
+  artifact-name:
+    description: 'Name of the artifact that will be downloaded'
+    required: true
+  artifact-file-name:
+    description: 'Name of the artifact archive file'
+    required: true
+    default: 'app'
+  base-image-name:
+    description: 'Name of the base image'
+    required: true
+  base-image-tag:
+    description: 'Tag of the base image'
+    required: true
+  final-image-name:
+    description: 'Name of the final image'
+    required: true
+  final-image-tag:
+    description: 'Tag of the final image'
+    required: true
+  registry-url:
+    description: 'URL of the Azure Container Registry'
+    required: true
+  registry-username:
+    description: 'Username to use to login to the Azure Container Registry'
+    required: true
+  registry-password:
+    description: 'Password to use to login to the Azure Container Registry'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.registry-url }}"
+        echo "::add-mask::${{ inputs.registry-username }}"
+        echo "::add-mask::${{ inputs.registry-password }}"
+
+    - name: Download Python code artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.artifact-name }}
+
+    - name: Unzip Python code artifact
+      shell: bash
+      run: unzip -o ${{ inputs.artifact-file-name }}.zip
+
+    - name: Download base image artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ inputs.base-image-name }}
+        path: ${{ runner.temp }}
+
+    - name: Load base image
+      shell: bash
+      run: docker load --input ${{ runner.temp }}/${{ inputs.base-image-name }}.tar
+
+    - name: Login to Azure Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ inputs.registry-url }}
+        username: ${{ inputs.registry-username }}
+        password: ${{ inputs.registry-password }}
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./Dockerfile.final
+        build-args: BASE_IMAGE=${{ inputs.base-image-name }}:${{ inputs.base-image-tag }}
+        push: true
+        tags: |
+          ${{ inputs.registry-url }}/${{ inputs.final-image-name }}:latest
+          ${{ inputs.registry-url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}

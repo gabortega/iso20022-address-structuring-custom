@@ -1,0 +1,24 @@
+name: Remove previous Docker images
+description:
+  'Remove any previously pushed Docker images from the Azure Container Registry'
+inputs:
+  final-image-name:
+    description: 'Name of the final image'
+    required: true
+  registry-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: echo "::add-mask::${{ inputs.registry-name }}"
+
+    - name: Keep only the last two images (this includes latest) and delete the rest
+      shell: bash
+      run: ${{ github.action_path }}/scripts/delete-images.sh
+      env:
+        REPOSITORY: ${{ inputs.final-image-name }}
+        REGISTRY: ${{ inputs.registry-name }}
+        ENABLE_DELETE: 'true'
