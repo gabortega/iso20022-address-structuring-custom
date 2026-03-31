@@ -5,7 +5,7 @@ on:
     branches: [ develop ]
 
 concurrency:
-  group: develop-build-deploy-${{ github.ref }}
+  group: develop-build-deploy
   cancel-in-progress: true
 
 permissions:

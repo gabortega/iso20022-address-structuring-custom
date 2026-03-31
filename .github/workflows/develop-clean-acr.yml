@@ -5,7 +5,7 @@ on:
     - cron: '*/30 * * * *'
 
 concurrency:
-  group: develop-build-deploy-${{ github.ref }}
+  group: develop-build-deploy
   cancel-in-progress: false
 
 jobs:
@@ -21,8 +21,9 @@ jobs:
       - name: Check last build time
         run: |
           LAST_BUILD=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/runs?branch=main&status=completed&per_page=1" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/develop-build-deploy.yml/runs?branch=develop&status=completed&per_page=1" \
             | jq -r '.workflow_runs[0].updated_at')
 
           if [ "$LAST_BUILD" = "null" ] || [ -z "$LAST_BUILD" ]; then
@@ -40,6 +41,9 @@ jobs:
             echo "Last build was too recent, skipping cleanup"
             echo "should_clean=false" >> $GITHUB_ENV
           fi
+
+      - uses: actions/checkout@v6
+        if: env.should_clean == 'true'
 
       - name: Log in to Azure
         if: env.should_clean == 'true'
