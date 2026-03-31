@@ -1,0 +1,53 @@
+name: Cleanup ACR (develop)
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+
+concurrency:
+  group: develop-build-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup Azure infrastructure whilst development environment is not being used
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    environment:
+      name: azure-containers
+
+    steps:
+      - name: Check last build time
+        run: |
+          LAST_BUILD=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/runs?branch=main&status=completed&per_page=1" \
+            | jq -r '.workflow_runs[0].updated_at')
+
+          if [ "$LAST_BUILD" = "null" ] || [ -z "$LAST_BUILD" ]; then
+            echo "No completed builds found, skipping cleanup"
+            echo "should_clean=false" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          SECONDS_AGO=$(( $(date +%s) - $(date -d "$LAST_BUILD" +%s) ))
+          echo "Last build completed $SECONDS_AGO seconds ago"
+
+          if [ $SECONDS_AGO -ge 1800 ]; then
+            echo "should_clean=true" >> $GITHUB_ENV
+          else
+            echo "Last build was too recent, skipping cleanup"
+            echo "should_clean=false" >> $GITHUB_ENV
+          fi
+
+      - name: Log in to Azure
+        if: env.should_clean == 'true'
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - uses: ./.github/actions/delete-all-images
+        if: env.should_clean == 'true'
+        with:
+          registry-name: ${{ secrets.REGISTRY_NAME }}

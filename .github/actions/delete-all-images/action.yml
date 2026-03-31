@@ -1,0 +1,28 @@
+name: delete-all-images
+description: Deletes all the repositories/Docker images present in an ACR
+inputs:
+  registry-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.registry-name }}"
+
+    - name: Clean ACR
+      shell: bash
+      run: |
+        REPOS=$(az acr repository list \
+          --name ${{ inputs.registry-name }} \
+          --output tsv)
+
+        for REPO in $REPOS; do
+          echo "Deleting repository $REPO..."
+          az acr repository delete \
+            --name ${{ inputs.registry-name }} \
+            --repository "$REPO" \
+            --yes
+        done
