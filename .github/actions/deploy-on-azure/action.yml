@@ -31,7 +31,6 @@ runs:
       run: |
         echo "::add-mask::${{ inputs.container-app-name }}"
         echo "::add-mask::${{ inputs.resource-group }}"
-        echo "::add-mask::${{ inputs.registry-name }}"
         echo "::add-mask::${{ inputs.registry-url }}"
         echo "::add-mask::${{ inputs.registry-username }}"
         echo "::add-mask::${{ inputs.registry-password }}"
