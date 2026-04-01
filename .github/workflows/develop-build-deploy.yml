@@ -15,7 +15,9 @@ env:
   PYTHON_VERSION: '3.13'
   ARTIFACT_NAME: 'iso-address-structuring-grpc-${{ github.run_id }}'
   BASE_IMAGE_NAME: 'base-image-${{ github.run_id }}'
+  BASE_IMAGE_TAG: ${{ github.sha }}
   FINAL_IMAGE_NAME: 'iso20022-address-structuring-grpc'
+  FINAL_IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   build-python:
@@ -41,7 +43,7 @@ jobs:
       - uses: ./.github/actions/build-base-image
         with:
           base-image-name: ${{ env.BASE_IMAGE_NAME }}
-          base-image-tag: ${{ github.sha }}
+          base-image-tag: ${{ env.BASE_IMAGE_TAG }}
 
   unit-test:
     name: Run unit tests
@@ -81,9 +83,9 @@ jobs:
         with:
           artifact-name: ${{ env.ARTIFACT_NAME }}
           base-image-name: ${{ env.BASE_IMAGE_NAME }}
-          base-image-tag: ${{ github.sha }}
+          base-image-tag: ${{ env.BASE_IMAGE_TAG }}
           final-image-name: ${{ env.FINAL_IMAGE_NAME }}
-          final-image-tag: ${{ github.sha }}
+          final-image-tag: ${{ env.FINAL_IMAGE_TAG }}
           registry-url: ${{ secrets.REGISTRY_URL }}
           registry-username: ${{ secrets.REGISTRY_USERNAME }}
           registry-password: ${{ secrets.REGISTRY_PASSWORD }}
@@ -106,7 +108,7 @@ jobs:
       - uses: ./.github/actions/deploy-on-azure
         with:
           final-image-name: ${{ env.FINAL_IMAGE_NAME }}
-          final-image-tag: ${{ github.sha }}
+          final-image-tag: ${{ env.FINAL_IMAGE_TAG }}
           container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           registry-url: ${{ secrets.REGISTRY_URL }}
