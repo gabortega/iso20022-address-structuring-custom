@@ -9,6 +9,7 @@ from typing import Iterable, Any, Generator
 
 import grpc
 import pytest
+from grpc_health.v1 import health_pb2, health_pb2_grpc
 
 from grpc_api.generated import (pb2_AddressSample,
                                 pb2_ProcessAddressResult,
@@ -33,7 +34,7 @@ def _get_free_port() -> int:
 def _start_server(port: int,
                   ssl_enabled: bool = False,
                   ca_cert_path: Path | None = None,
-                  startup_timeout: float = 60) -> Popen:
+                  startup_timeout: float = 30) -> Popen:
     """Start run_server.py as a subprocess with the given config via env vars."""
     args = [
         sys.executable, "-m", "grpc_api.run_server",
@@ -76,18 +77,24 @@ def _start_server(port: int,
             else:
                 channel_function = _insecure_channel
             with channel_function(port) as channel:
-                grpc.channel_ready_future(channel).result(timeout=1)
-            return process
-        except grpc.FutureTimeoutError:
-            time.sleep(0.5)
-        except Exception:
-            time.sleep(0.5)
+                health_stub = health_pb2_grpc.HealthStub(channel)
+                request = health_pb2.HealthCheckRequest(service="address_structuring.AddressStructuring")
+                resp: health_pb2.HealthCheckResponse = health_stub.Check(request)
+                if resp.status == health_pb2.HealthCheckResponse.SERVING:
+                    return process
+                elif resp.status == health_pb2.HealthCheckResponse.NOT_SERVING:
+                    time.sleep(0.5)
+                else:
+                    raise RuntimeError(f"Unexpected status: {resp}")
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                time.sleep(0.5)
+            else:
+                raise e
 
     process.kill()
-    stdout, stderr = process.communicate()
     raise RuntimeError(
         f"Server did not become ready within {startup_timeout}s.\n"
-        f"stdout: {stdout.decode()}\nstderr: {stderr.decode()}"
     )
 
 
