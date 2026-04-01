@@ -1,0 +1,39 @@
+name: delete-container-app
+description: 'Deletes the Azure Container App'
+inputs:
+  container-app-name:
+    description: 'Name of the Azure Container App'
+    required: true
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.container-app-name }}"
+        echo "::add-mask::${{ inputs.resource-group }}"
+
+    - name: Check if ACA exists
+      shell: bash
+      run: |
+        EXISTS=$(az containerapp show \
+          --name ${{ inputs.container-app-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --query name -o tsv 2>/dev/null || echo "")
+        if [ -n "$EXISTS" ]; then
+          echo "container_app_exists=true" >> $GITHUB_ENV
+        else
+          echo "Container app not found, skipping"
+        fi
+
+    - name: Delete ACA
+      shell: bash
+      if: env.container_app_exists == 'true'
+      run: |
+        az containerapp delete \
+          --name ${{ inputs.container-app-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --yes

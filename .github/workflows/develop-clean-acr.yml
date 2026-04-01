@@ -51,7 +51,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - uses: ./.github/actions/delete-all-images
+      - uses: ./.github/actions/delete-container-app
+        if: env.should_clean == 'true'
+        with:
+          container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
+          resource-group: ${{ secrets.RESOURCE_GROUP }}
+
+      - uses: ./.github/actions/delete-container-registry
         if: env.should_clean == 'true'
         with:
           registry-name: ${{ secrets.REGISTRY_NAME }}
+          resource-group: ${{ secrets.RESOURCE_GROUP }}

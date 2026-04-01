@@ -1,0 +1,39 @@
+name: delete-all-images
+description: 'Deletes the Azure Container Registry'
+inputs:
+  registry-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.registry-name }}"
+        echo "::add-mask::${{ inputs.resource-group }}"
+
+    - name: Check if ACR exists
+      shell: bash
+      run: |
+        EXISTS=$(az acr show \
+          --name ${{ inputs.registry-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --query name -o tsv 2>/dev/null || echo "")
+        if [ -n "$EXISTS" ]; then
+          echo "container_registry_exists=true" >> $GITHUB_ENV
+        else
+          echo "Container registry not found, skipping"
+        fi
+
+    - name: Delete ACR
+      shell: bash
+      if: env.container_registry_exists == 'true'
+      run: |
+        az acr delete \
+          --name ${{ inputs.registry-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --yes
