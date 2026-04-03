@@ -1,6 +1,5 @@
 name: Build Docker base image
-description:
-  'Build the Docker base image that will be used to create the final image'
+description: 'Build the Docker base image that will be used to create the final image'
 inputs:
   base-image-name:
     description: 'Name of the base image'

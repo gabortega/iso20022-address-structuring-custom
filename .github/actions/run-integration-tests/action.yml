@@ -1,6 +1,5 @@
 name: Run integration tests sequentially
-description:
-  'Download the previously built Python application and run the integration tests sequentially'
+description: 'Download the previously built Python application and run the integration tests sequentially'
 inputs:
   python-version:
     description: 'Python version to use'

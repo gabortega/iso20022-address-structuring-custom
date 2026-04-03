@@ -1,0 +1,38 @@
+name: deploy-main-infra
+description: 'Deploys the main infrastructure without including the Container App'
+inputs:
+  environment:
+    description: 'Name of the Azure environment to deploy'
+    required: true
+  container-app-env-name:
+    description: 'Name of the Azure Container App Environment'
+    required: true
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+  registry-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+runs:
+  using: 'composite'
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.container-app-env-name }}"
+        echo "::add-mask::${{ inputs.resource-group }}"
+        echo "::add-mask::${{ inputs.registry-name }}"
+
+    - name: Deploy Bicep (without Container App)
+      id: deploy-main-infra
+      uses: azure/arm-deploy@v2
+      with:
+        deploymentMode: 'Complete'
+        resourceGroupName: ${{ inputs.resource-group }}
+        scope: 'resourcegroup'
+        template: ./infra/main.bicep
+        parameters: >
+          ./infra/environments/${{ inputs.environment }}.main.bicepparam
+          acrName=${{ inputs.registry-name }}
+          containerAppEnvName=${{ inputs.container-app-env-name }}
+        failOnStdErr: 'true'

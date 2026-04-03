@@ -1,6 +1,5 @@
 name: Build Python Application
-description:
-  'Download all required dependencies and build the Python application'
+description: 'Download all required dependencies and build the Python application'
 inputs:
   python-version:
     description: 'Python version to use'

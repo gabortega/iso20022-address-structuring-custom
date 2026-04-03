@@ -1,6 +1,5 @@
 name: Push to Azure Container Registry
-description:
-  'Download all required dependencies and build the Python application'
+description: 'Download all required dependencies and build the Python application'
 inputs:
   artifact-name:
     description: 'Name of the artifact that will be downloaded'
@@ -21,14 +20,11 @@ inputs:
   final-image-tag:
     description: 'Tag of the final image'
     required: true
-  registry-url:
-    description: 'URL of the Azure Container Registry'
+  resource-group:
+    description: 'Name of the Azure Resource Group'
     required: true
-  registry-username:
-    description: 'Username to use to login to the Azure Container Registry'
-    required: true
-  registry-password:
-    description: 'Password to use to login to the Azure Container Registry'
+  registry-name:
+    description: 'Name of the Azure Container Registry'
     required: true
 runs:
   using: "composite"
@@ -36,9 +32,24 @@ runs:
     - name: Mask inputs
       shell: bash
       run: |
-        echo "::add-mask::${{ inputs.registry-url }}"
-        echo "::add-mask::${{ inputs.registry-username }}"
-        echo "::add-mask::${{ inputs.registry-password }}"
+        echo "::add-mask::${{ inputs.resource-group }}"
+        echo "::add-mask::${{ inputs.registry-name }}"
+
+    - name: Fetch the Azure Container Registry's login server URL
+      id: fetch-registry-url
+      shell: bash
+      run: ${{ github.action_path }}/../scripts/fetch-registry-url.sh
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        REGISTRY_NAME: ${{ inputs.registry-name }}
+
+    - name: Fetch the Azure Container Registry's Admin Password
+      id: fetch-registry-password
+      shell: bash
+      run: ${{ github.action_path }}/../scripts/fetch-registry-password.sh
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        REGISTRY_NAME: ${{ inputs.registry-name }}
 
     - name: Download Python code artifact
       uses: actions/download-artifact@v8
@@ -62,9 +73,9 @@ runs:
     - name: Login to Azure Container Registry
       uses: docker/login-action@v4
       with:
-        registry: ${{ inputs.registry-url }}
-        username: ${{ inputs.registry-username }}
-        password: ${{ inputs.registry-password }}
+        registry: ${{ steps.fetch-registry-url.outputs.registry_url }}
+        username: ${{ inputs.registry-name }}
+        password: ${{ steps.fetch-registry-password.outputs.registry_password }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
@@ -74,5 +85,5 @@ runs:
         build-args: BASE_IMAGE=${{ inputs.base-image-name }}:${{ inputs.base-image-tag }}
         push: true
         tags: |
-          ${{ inputs.registry-url }}/${{ inputs.final-image-name }}:latest
-          ${{ inputs.registry-url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
+          ${{ steps.fetch-registry-url.outputs.registry_url }}/${{ inputs.final-image-name }}:latest
+          ${{ steps.fetch-registry-url.outputs.registry_url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}

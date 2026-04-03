@@ -1,6 +1,5 @@
 name: Run unit tests in parallel
-description:
-  'Download the previously built Python application and run the unit tests in parallel'
+description: 'Download the previously built Python application and run the unit tests in parallel'
 inputs:
   python-version:
     description: 'Python version to use'

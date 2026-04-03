@@ -3,6 +3,7 @@ name: Cleanup ACR (develop)
 on:
   schedule:
     - cron: '*/30 * * * *'
+  workflow_dispatch:
 
 concurrency:
   group: develop-build-deploy
@@ -15,7 +16,7 @@ jobs:
     permissions:
       actions: read
     environment:
-      name: azure-containers
+      name: azure-container-app-dev
 
     steps:
       - name: Check last build time
@@ -35,7 +36,7 @@ jobs:
           SECONDS_AGO=$(( $(date +%s) - $(date -d "$LAST_BUILD" +%s) ))
           echo "Last build completed $SECONDS_AGO seconds ago"
 
-          if [ $SECONDS_AGO -ge 1800 ]; then
+          if [ $SECONDS_AGO -ge ${{ vars.MIN_TIME_SINCE_LAST_BUILD }} ]; then
             echo "should_clean=true" >> $GITHUB_ENV
           else
             echo "Last build was too recent, skipping cleanup"
@@ -60,5 +61,9 @@ jobs:
       - uses: ./.github/actions/delete-container-registry
         if: env.should_clean == 'true'
         with:
-          registry-name: ${{ secrets.REGISTRY_NAME }}
           resource-group: ${{ secrets.RESOURCE_GROUP }}
+          registry-name: ${{ secrets.REGISTRY_NAME }}
+
+      - name: Logout of Azure
+        shell: bash
+        run: az logout
