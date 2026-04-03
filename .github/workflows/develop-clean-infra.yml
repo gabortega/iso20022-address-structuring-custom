@@ -10,30 +10,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  cleanup:
-    name: Cleanup Azure infrastructure whilst development environment is not being used
+  check-last-build:
+    name: Check if enough time has passed since the last successful build
     runs-on: ubuntu-latest
     permissions:
       actions: read
     environment:
       name: azure-container-app-dev
+    outputs:
+      should_clean: ${{ steps.check-last-build-time.outputs.should_clean }}
 
     steps:
       - name: Check last build time
+        id: check-last-build-time
         run: |
-          LAST_BUILD=$(curl -s \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/develop-build-deploy.yml/runs?branch=develop&status=completed&per_page=1" \
-            | jq -r '.workflow_runs[0].updated_at')
+          GITHUB_API_URL="https://api.github.com/repos/${{ github.repository }}/actions/workflows/develop-build-deploy.yml/runs?branch=develop&per_page=1"
+          
+          read LAST_BUILD_TIME LAST_BUILD_STATUS < <(curl -s \
+                                                          -H "Accept: application/vnd.github+json" \
+                                                          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+                                                          $GITHUB_API_URL \
+                                                          | jq -r '.workflow_runs[0] | [.updated_at, .status] | @tsv')
 
-          if [ "$LAST_BUILD" = "null" ] || [ -z "$LAST_BUILD" ]; then
+          if [ "$LAST_BUILD_TIME" = "null" ]  || \
+             [ -z "$LAST_BUILD_TIME" ]        || \
+             [[ "${LAST_BUILD_STATUS}" -ne "completed" ]]
+          then
             echo "No completed builds found, skipping cleanup"
             echo "should_clean=false" >> $GITHUB_ENV
             exit 0
           fi
 
-          SECONDS_AGO=$(( $(date +%s) - $(date -d "$LAST_BUILD" +%s) ))
+          SECONDS_AGO=$(( $(date +%s) - $(date -d "$LAST_BUILD_TIME" +%s) ))
           echo "Last build completed $SECONDS_AGO seconds ago"
 
           if [ $SECONDS_AGO -ge ${{ vars.MIN_TIME_SINCE_LAST_BUILD }} ]; then
@@ -43,23 +51,31 @@ jobs:
             echo "should_clean=false" >> $GITHUB_ENV
           fi
 
+  cleanup:
+    name: Cleanup Azure infrastructure whilst development environment is not being used
+    runs-on: ubuntu-latest
+    needs:
+      - check-last-build
+    if: needs.check-last-build.outputs.should_clean == 'true'
+    permissions:
+      actions: read
+    environment:
+      name: azure-container-app-dev
+
+    steps:
       - uses: actions/checkout@v6
-        if: env.should_clean == 'true'
 
       - name: Log in to Azure
-        if: env.should_clean == 'true'
         uses: azure/login@v3
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - uses: ./.github/actions/delete-container-app
-        if: env.should_clean == 'true'
         with:
           container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
           resource-group: ${{ secrets.RESOURCE_GROUP }}
 
       - uses: ./.github/actions/delete-container-registry
-        if: env.should_clean == 'true'
         with:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           registry-name: ${{ secrets.REGISTRY_NAME }}
