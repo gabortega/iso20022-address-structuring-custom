@@ -168,7 +168,6 @@ jobs:
     name: Remove previous Docker images
     runs-on: ubuntu-latest
     needs:
-      - main-infra
       - app-infra
     environment:
       name: azure-container-app-dev
@@ -185,6 +184,31 @@ jobs:
         with:
           final-image-name: ${{ env.FINAL_IMAGE_NAME }}
           registry-name: ${{ secrets.REGISTRY_NAME }}
+
+      - name: Logout of Azure
+        shell: bash
+        run: az logout
+
+  test-container-app:
+    name: Test the deployed Container App
+    runs-on: ubuntu-latest
+    needs:
+      - app-infra
+    environment:
+      name: azure-container-app-dev
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Login to Azure
+        uses: azure/login@v3
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - uses: ./.github/actions/test-container-app
+        with:
+          container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
+          resource-group: ${{ secrets.RESOURCE_GROUP }}
 
       - name: Logout of Azure
         shell: bash

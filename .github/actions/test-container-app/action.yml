@@ -1,0 +1,45 @@
+name: test-container-app
+description: "Tests the Container App by sending a ProcessAddress request"
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: true
+    default: '3.13'
+  container-app-name:
+    description: 'Name of the Azure Container App'
+    required: true
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.container-app-name }}"
+        echo "::add-mask::${{ inputs.resource-group }}"
+
+    - name: Fetch the Azure Container App's FQDN
+      id: fetch-container-app-fqdn
+      shell: bash
+      run: ${{ github.action_path }}/../scripts/fetch-container-app-fqdn.sh
+      env:
+        CONTAINER_APP_NAME: ${{ inputs.container-app-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r requirements.txt
+
+    - name: Run preprocessing scripts
+      shell: bash
+      run: |
+        export PYTHONPATH=$(pwd)
+        python ./.github/actions/scripts/test_container_app.py \
+          --ip_address=${{ steps.fetch-container-app-fqdn.outputs.container_app_fqdn }}

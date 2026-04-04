@@ -37,7 +37,7 @@ jobs:
              [[ "${LAST_BUILD_STATUS}" -ne "completed" ]]
           then
             echo "No completed builds found, skipping cleanup"
-            echo "should_clean=false" >> $GITHUB_ENV
+            echo "should_clean=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
@@ -45,10 +45,10 @@ jobs:
           echo "Last build completed $SECONDS_AGO seconds ago"
 
           if [ $SECONDS_AGO -ge ${{ vars.MIN_TIME_SINCE_LAST_BUILD }} ]; then
-            echo "should_clean=true" >> $GITHUB_ENV
+            echo "should_clean=true" >> $GITHUB_OUTPUT
           else
             echo "Last build was too recent, skipping cleanup"
-            echo "should_clean=false" >> $GITHUB_ENV
+            echo "should_clean=false" >> $GITHUB_OUTPUT
           fi
 
   cleanup:

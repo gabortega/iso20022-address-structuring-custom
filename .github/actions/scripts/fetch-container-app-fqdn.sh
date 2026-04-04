@@ -5,12 +5,12 @@
 # The value is masked in the log to prevent accidental exposure.
 
 # Required environment variables:
-#   CONTAINER_APP    - Name of the Azure Container App
+#   $CONTAINER_APP_NAME    - Name of the Azure Container App
 #   RESOURCE_GROUP   - Azure resource group containing the Container App
 # Outputs (via $GITHUB_OUTPUT):
 #   container_app_fqdn - The public FQDN of the Container App ingress
 FQDN=$(az containerapp show \
-  --name $CONTAINER_APP \
+  --name $CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
   --query "properties.configuration.ingress.fqdn" -o tsv)
 
