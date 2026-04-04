@@ -1,0 +1,108 @@
+List of files that have been added/removed/modified
+
+.flake8
+.github/actions/build-app/action.yml
+.github/actions/build-base-image/action.yml
+.github/actions/delete-container-app/action.yml
+.github/actions/delete-container-registry/action.yml
+.github/actions/delete-prev-images/action.yml
+.github/actions/deploy-app-infra/action.yml
+.github/actions/deploy-main-infra/action.yml
+.github/actions/push-docker-image/action.yml
+.github/actions/run-integration-tests/action.yml
+.github/actions/run-unit-tests/action.yml
+.github/actions/scripts/delete-images.sh
+.github/actions/scripts/fetch-container-app-env-id.sh
+.github/actions/scripts/fetch-container-app-fqdn.sh
+.github/actions/scripts/fetch-registry-password.sh
+.github/actions/scripts/fetch-registry-url.sh
+.github/actions/scripts/test_container_app.py
+.github/actions/test-container-app/action.yml
+.github/workflows/develop-build-deploy.yml
+.github/workflows/develop-clean-infra.yml
+.gitignore
+.gitmodules
+CODEOWNERS
+CODE_OF_CONDUCT.MD
+CONTRIBUTORS.md
+Dockerfile.base
+Dockerfile.final
+LICENSE
+BIN LICENSE.pdf
+MANIFEST.in
+PKG-INFO
+README.md
+SECURITY.md
+BIN Swift Hybrid Postal Address Structuring - Installation & User Guide.pdf
+LICENSE.txt → Swift-LICENSE
+data_structuring/components/readers/base_reader.py
+data_structuring/components/readers/protobuf_reader.py
+data_structuring/components/runners/result_processing.py
+data_structuring/components/runners/runner_post_processing.py
+data_structuring/config.py
+data_structuring/pipeline.py
+data_structuring/preprocessing/preprocess_model_input.py
+data_structuring/run.py
+grpc_api/__init__.py
+grpc_api/generated/__init__.py
+grpc_api/generated/address_structuring_pb2.py
+grpc_api/generated/address_structuring_pb2_grpc.py
+grpc_api/health/__init__.py
+grpc_api/health/health_servicer.py
+grpc_api/interceptor/__init__.py
+grpc_api/interceptor/rpc_interceptor.py
+grpc_api/proto/__init__.py
+grpc_api/proto/address_structuring.proto
+grpc_api/run_server.py
+grpc_api/server/__init__.py
+grpc_api/server/address_structuring_servicer.py
+grpc_api/server/process_address_tasks.py
+grpc_api/server/utils.py
+grpc_api/server/worker_monitor.py
+grpc_api/server/worker_process.py
+infra/app.bicep
+infra/environments/dev.app.bicepparam
+infra/environments/dev.main.bicepparam
+infra/environments/prod.app.bicepparam
+infra/environments/prod.main.bicepparam
+infra/main.bicep
+infra/modules/acr.bicep
+infra/modules/containerApp.bicep
+infra/modules/containerAppEnv.bicep
+pyproject.toml
+requirements-dev.txt
+requirements-test.txt
+requirements.txt
+resources
+setup.cfg
+setup.py
+swift_address_structuring.egg-info/PKG-INFO
+swift_address_structuring.egg-info/SOURCES.txt
+swift_address_structuring.egg-info/dependency_links.txt
+swift_address_structuring.egg-info/entry_points.txt
+swift_address_structuring.egg-info/requires.txt
+swift_address_structuring.egg-info/top_level.txt
+tests/integration/__init__.py
+tests/integration/ssl/ca-key.pem
+tests/integration/ssl/ca.pem
+tests/integration/ssl/client-key.pem
+tests/integration/ssl/client.pem
+tests/integration/ssl/server-key.pem
+tests/integration/ssl/server.pem
+tests/integration/test_grpc_server.py
+tests/unit/__init__.py
+tests/{ → unit}/test_combination_generator.py
+tests/{ → unit}/test_country_provider.py
+tests/{ → unit}/test_data/country_groupings_test.json
+tests/{ → unit}/test_dataframe_reader.py
+tests/{ → unit}/test_flag_managers.py
+tests/unit/test_grpc_api.py
+tests/unit/test_health_servicer.py
+tests/{ → unit}/test_model.py
+tests/{ → unit}/test_normalization.py
+tests/{ → unit}/test_osm_towns_provider.py
+tests/unit/test_process_address_task.py
+tests/unit/test_rpc_interceptor.py
+tests/{ → unit}/test_score_computer.py
+tests/unit/test_server_utils.py
+tests/unit/test_servicer_worker_management.py
