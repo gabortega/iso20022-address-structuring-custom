@@ -13,6 +13,12 @@ inputs:
   key-vault-name:
     description: 'Name of the Key Vault'
     required: true
+  user-id:
+    description: 'Object ID of the Admin User'
+    required: true
+  service-principal-id:
+    description: 'Object ID of the Service Principal'
+    required: true
 runs:
   using: 'composite'
   steps:
@@ -22,6 +28,8 @@ runs:
         echo "::add-mask::${{ inputs.resource-group }}"
         echo "::add-mask::${{ inputs.registry-name }}"
         echo "::add-mask::${{ inputs.key-vault-name }}"
+        echo "::add-mask::${{ inputs.user-id }}"
+        echo "::add-mask::${{ inputs.service-principal-id }}"
 
     - name: Deploy Bicep (without Container Instance)
       id: deploy-main-infra
@@ -35,4 +43,6 @@ runs:
           ./infra/environments/${{ inputs.environment }}.main.bicepparam
           acrName=${{ inputs.registry-name }}
           keyVaultName=${{ inputs.key-vault-name }}
+          userId=${{ inputs.user-id }}
+          servicePrincipalId=${{ inputs.service-principal-id }}
         failOnStdErr: 'true'

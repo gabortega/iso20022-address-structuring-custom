@@ -34,6 +34,12 @@ param cpuCore string = '2'
 @description('Memory per replica')
 param memorySize string = '4Gi'
 
+@description('Tags to apply to resources')
+param tags object = {
+    Environment: environment
+    ManagedBy: 'Bicep'
+    LastDeployed: utcNow('d')
+  }
 // ============================================================
 // Resources
 // ============================================================
@@ -51,6 +57,7 @@ var acrPassword    = keyVault.getSecret('acr-password')
 resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01' = {
   name: containerInstanceName
   location: location
+  tags: tags
   properties: {
     containers: [
       {
@@ -100,9 +107,6 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
     osType: 'Linux'
     restartPolicy: 'Always'
     volumes: []
-  }
-  tags: {
-    environment: 'Dev'
   }
   zones: []
 }

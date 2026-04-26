@@ -45,6 +45,8 @@ jobs:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           registry-name: ${{ secrets.REGISTRY_NAME }}
           key-vault-name: ${{ secrets.KEY_VAULT_NAME }}
+          user-id: ${{ secrets.USER_ID }}
+          service-principal-id: ${{ secrets.SERVICE_PRINCIPAL_ID }}
 
       - name: Logout of Azure
         shell: bash
