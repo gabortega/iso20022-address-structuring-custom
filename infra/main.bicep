@@ -41,6 +41,7 @@ param utcShort string = utcNow('d')
 // ============================================================
 // Variables
 // ============================================================
+
 // List of roles assignments to add to Key Vault RBAC
 var roleAssignments = [
   {

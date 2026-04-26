@@ -28,31 +28,33 @@ param containerPort int = 8080
 @description('Maximum number of pipeline instances')
 param pipelineMaxInstances string = '1'
 
-@description('CPU per replica')
-param cpuCore string = '2'
+@description('CPU cores')
+param cpuCore int = 2
 
-@description('Memory per replica')
-param memorySize string = '4Gi'
+@description('Memory in GB')
+param memoryInGB int = 4
 
-@description('Tags to apply to resources')
-param tags object = {
-    Environment: environment
-    ManagedBy: 'Bicep'
-    LastDeployed: utcNow('d')
-  }
+param utcShort string = utcNow('d')
+
+// ============================================================
+// Variables
+// ============================================================
+
+// Tags to apply to resources
+var tags = {
+  Environment: environment
+  ManagedBy: 'Bicep'
+  LastDeployed: utcShort
+}
+
 // ============================================================
 // Resources
 // ============================================================
 
 // Reference existing Key Vault
 resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' existing = {
-  name: 'kv-hyb-addr-struct-grpc-${env}'
+  name: keyVaultName
 }
-
-// Fetch secrets from Key Vault
-var acrLoginServer = keyVault.getSecret('acr-login-server')
-var acrUsername    = keyVault.getSecret('acr-username')
-var acrPassword    = keyVault.getSecret('acr-password')
 
 resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01' = {
   name: containerInstanceName
@@ -78,9 +80,13 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
             }
           ]
           resources: {
+            limits: {
+              cpu: any(cpuCore)
+              memoryInGB: memoryInGB
+            }
             requests: {
               cpu: any(cpuCore)
-              memory: memorySize
+              memoryInGB: memoryInGB
             }
           }
         }
@@ -99,9 +105,9 @@ resource containerGroup 'Microsoft.ContainerInstance/containerGroups@2025-09-01'
     }
     imageRegistryCredentials: [
       {
-        server: acrLoginServer
-        username: acrUsername
-        password: acrPassword
+        server: keyVault.getSecret('acr-login-server')
+        username: keyVault.getSecret('acr-username')
+        password: keyVault.getSecret('acr-password')
       }
     ]
     osType: 'Linux'
