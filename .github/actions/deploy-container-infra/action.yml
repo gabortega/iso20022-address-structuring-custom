@@ -41,5 +41,5 @@ runs:
           ./infra/environments/${{ inputs.environment }}.container.bicepparam
           keyVaultName=${{ inputs.key-vault-name }}
           containerInstanceName=${{ inputs.container-instance-name }}
-          containerImage=${{ steps.fetch-registry-credentials.outputs.registry_url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
+          containerImage=${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
         failOnStdErr: 'true'
