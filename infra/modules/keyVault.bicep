@@ -49,6 +49,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' = {
     enableSoftDelete: true
     enableRbacAuthorization: true
     softDeleteRetentionInDays: softDeleteRetentionInDays
+    enabledForTemplateDeployment: true
 
     publicNetworkAccess: 'Enabled'
     networkAcls: {
