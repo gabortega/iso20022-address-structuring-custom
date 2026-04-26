@@ -1,0 +1,39 @@
+name: delete-container-deployment
+description: 'Deletes the Azure Container Instance'
+inputs:
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+  container-instance-name:
+    description: 'Name of the Azure Container Instance'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.resource-group }}"
+        echo "::add-mask::${{ inputs.container-instance-name }}"
+
+    - name: Check if ACI exists
+      shell: bash
+      run: |
+        EXISTS=$(az container show \
+          --name ${{ inputs.container-instance-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --query name -o tsv 2>/dev/null || echo "")
+        if [ -n "$EXISTS" ]; then
+          echo "container_deployment_exists=true" >> $GITHUB_ENV
+        else
+          echo "Container deployment not found, skipping"
+        fi
+
+    - name: Delete ACI
+      shell: bash
+      if: env.container_deployment_exists == 'true'
+      run: |
+        az container delete \
+          --name ${{ inputs.container-instance-name }} \
+          --resource-group ${{ inputs.resource-group }} \
+          --yes

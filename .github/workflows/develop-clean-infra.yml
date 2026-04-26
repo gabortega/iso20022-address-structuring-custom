@@ -1,4 +1,4 @@
-name: Cleanup ACR (develop)
+name: Cleanup Azure Infrastructure
 
 on:
   schedule:
@@ -16,7 +16,7 @@ jobs:
     permissions:
       actions: read
     environment:
-      name: azure-container-app-dev
+      name: azure-container-deployment-dev
     outputs:
       should_clean: ${{ steps.check-last-build-time.outputs.should_clean }}
 
@@ -60,7 +60,7 @@ jobs:
     permissions:
       actions: read
     environment:
-      name: azure-container-app-dev
+      name: azure-container-deployment-dev
 
     steps:
       - uses: actions/checkout@v6
@@ -70,10 +70,10 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - uses: ./.github/actions/delete-container-app
+      - uses: ./.github/actions/delete-container-instance
         with:
-          container-app-name: ${{ secrets.CONTAINER_APP_NAME }}
           resource-group: ${{ secrets.RESOURCE_GROUP }}
+          container-instance-name: ${{ secrets.CONTAINER_INSTANCE_NAME }}
 
       - uses: ./.github/actions/delete-container-registry
         with:

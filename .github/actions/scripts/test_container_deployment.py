@@ -40,7 +40,7 @@ def wait_for_server(ip_address: str, startup_timeout=60) -> None:
                 time.sleep(0.5)
             else:
                 raise e
-    raise RuntimeError(f"Container App did not come online after waiting {startup_timeout}s")
+    raise RuntimeError(f"Container deployment did not come online after waiting {startup_timeout}s")
 
 
 def send_address(ip_address: str, address_sample: str, hash_id: str) -> list[pb2_ProcessAddressResult]:
@@ -53,8 +53,8 @@ def send_address(ip_address: str, address_sample: str, hash_id: str) -> list[pb2
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Test the address structuring container app.")
-    parser.add_argument("--ip_address", required=True, help="IP address of the container app.")
+    parser = argparse.ArgumentParser(description="Test the address structuring container deployment.")
+    parser.add_argument("--ip_address", required=True, help="IP address of the container deployment.")
     args = parser.parse_args()
 
     address_sample_text = "SWIFT\nAVENUE ADELE 1\nLA HULPE, 1310\nBELGIQUE"

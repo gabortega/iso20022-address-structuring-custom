@@ -4,14 +4,14 @@ inputs:
   environment:
     description: 'Name of the Azure environment to deploy'
     required: true
-  container-app-env-name:
-    description: 'Name of the Azure Container App Environment'
-    required: true
   resource-group:
     description: 'Name of the Azure Resource Group'
     required: true
   registry-name:
     description: 'Name of the Azure Container Registry'
+    required: true
+  key-vault-name:
+    description: 'Name of the Key Vault'
     required: true
 runs:
   using: 'composite'
@@ -19,11 +19,11 @@ runs:
     - name: Mask inputs
       shell: bash
       run: |
-        echo "::add-mask::${{ inputs.container-app-env-name }}"
         echo "::add-mask::${{ inputs.resource-group }}"
         echo "::add-mask::${{ inputs.registry-name }}"
+        echo "::add-mask::${{ inputs.key-vault-name }}"
 
-    - name: Deploy Bicep (without Container App)
+    - name: Deploy Bicep (without Container Instance)
       id: deploy-main-infra
       uses: azure/arm-deploy@v2
       with:
@@ -34,5 +34,5 @@ runs:
         parameters: >
           ./infra/environments/${{ inputs.environment }}.main.bicepparam
           acrName=${{ inputs.registry-name }}
-          containerAppEnvName=${{ inputs.container-app-env-name }}
+          keyVaultName=${{ inputs.key-vault-name }}
         failOnStdErr: 'true'

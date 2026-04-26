@@ -1,15 +1,15 @@
-name: test-container-app
-description: "Tests the Container App by sending a ProcessAddress request"
+name: test-container-deployment
+description: "Tests the Container Instance by sending a ProcessAddress request"
 inputs:
   python-version:
     description: 'Python version to use'
     required: true
     default: '3.13'
-  container-app-name:
-    description: 'Name of the Azure Container App'
-    required: true
   resource-group:
     description: 'Name of the Azure Resource Group'
+    required: true
+  container-instance-name:
+    description: 'Name of the Azure Container Instance'
     required: true
 runs:
   using: "composite"
@@ -17,16 +17,16 @@ runs:
     - name: Mask inputs
       shell: bash
       run: |
-        echo "::add-mask::${{ inputs.container-app-name }}"
+        echo "::add-mask::${{ inputs.container-instance-name }}"
         echo "::add-mask::${{ inputs.resource-group }}"
 
-    - name: Fetch the Azure Container App's FQDN
-      id: fetch-container-app-fqdn
+    - name: Fetch the Azure Container Instance's IP
+      id: fetch-container-instance-ip
       shell: bash
-      run: ${{ github.action_path }}/../scripts/fetch-container-app-fqdn.sh
+      run: ${{ github.action_path }}/../scripts/fetch-container-instance-ip.sh
       env:
-        CONTAINER_APP_NAME: ${{ inputs.container-app-name }}
         RESOURCE_GROUP: ${{ inputs.resource-group }}
+        CONTAINER_INSTANCE_NAME: ${{ inputs.container-instance-name }}
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -41,5 +41,5 @@ runs:
       shell: bash
       run: |
         export PYTHONPATH=$(pwd)
-        python ./.github/actions/scripts/test_container_app.py \
-          --ip_address=${{ steps.fetch-container-app-fqdn.outputs.container_app_fqdn }}
+        python ./.github/actions/scripts/test_container_deployment.py \
+          --ip_address=${{ steps.fetch-container-instance-ip.outputs.container_instance_ip }}

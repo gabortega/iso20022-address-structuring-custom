@@ -1,0 +1,44 @@
+name: deploy-container-infra
+description: 'Deploy the Container Instance infrastructure using the pushed Docker image'
+inputs:
+  environment:
+    description: 'Name of the Azure environment to deploy'
+    required: true
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
+  final-image-name:
+    description: 'Name of the final image'
+    required: true
+  final-image-tag:
+    description: 'Tag of the final image'
+    required: true
+  key-vault-name:
+    description: 'Name of the Key Vault'
+    required: true
+  container-instance-name:
+    description: 'Name of the Azure Container Instance'
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Mask inputs
+      shell: bash
+      run: |
+        echo "::add-mask::${{ inputs.resource-group }}"
+        echo "::add-mask::${{ inputs.container-instance-name }}"
+
+    - name: Deploy Bicep (only Container Instance)
+      id: deploy-container-infra
+      uses: azure/arm-deploy@v2
+      with:
+        deploymentMode: 'Incremental'
+        resourceGroupName: ${{ inputs.resource-group }}
+        scope: 'resourcegroup'
+        template: ./infra/container.bicep
+        parameters: >
+          ./infra/environments/${{ inputs.environment }}.container.bicepparam
+          keyVaultName=${{ inputs.key-vault-name }}
+          containerInstanceName=${{ inputs.container-instance-name }}
+          containerImage=${{ steps.fetch-registry-credentials.outputs.registry_url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
+        failOnStdErr: 'true'

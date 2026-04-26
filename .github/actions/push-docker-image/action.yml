@@ -1,6 +1,9 @@
 name: Push to Azure Container Registry
 description: 'Download all required dependencies and build the Python application'
 inputs:
+  resource-group:
+    description: 'Name of the Azure Resource Group'
+    required: true
   artifact-name:
     description: 'Name of the artifact that will be downloaded'
     required: true
@@ -20,11 +23,8 @@ inputs:
   final-image-tag:
     description: 'Tag of the final image'
     required: true
-  resource-group:
-    description: 'Name of the Azure Resource Group'
-    required: true
-  registry-name:
-    description: 'Name of the Azure Container Registry'
+  key-vault-name:
+    description: 'Name of the Key Vault'
     required: true
 runs:
   using: "composite"
@@ -33,23 +33,14 @@ runs:
       shell: bash
       run: |
         echo "::add-mask::${{ inputs.resource-group }}"
-        echo "::add-mask::${{ inputs.registry-name }}"
+        echo "::add-mask::${{ inputs.key-vault-name }}"
 
-    - name: Fetch the Azure Container Registry's login server URL
-      id: fetch-registry-url
+    - name: Fetch the Azure Container Registry's credentials
+      id: fetch-registry-credentials
       shell: bash
-      run: ${{ github.action_path }}/../scripts/fetch-registry-url.sh
+      run: ${{ github.action_path }}/../scripts/fetch-acr-key-vault-secrets.sh
       env:
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
-        REGISTRY_NAME: ${{ inputs.registry-name }}
-
-    - name: Fetch the Azure Container Registry's Admin Password
-      id: fetch-registry-password
-      shell: bash
-      run: ${{ github.action_path }}/../scripts/fetch-registry-password.sh
-      env:
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
-        REGISTRY_NAME: ${{ inputs.registry-name }}
+        KEY_VAULT: ${{ inputs.key-vault-name }}
 
     - name: Download Python code artifact
       uses: actions/download-artifact@v8
@@ -73,9 +64,9 @@ runs:
     - name: Login to Azure Container Registry
       uses: docker/login-action@v4
       with:
-        registry: ${{ steps.fetch-registry-url.outputs.registry_url }}
-        username: ${{ inputs.registry-name }}
-        password: ${{ steps.fetch-registry-password.outputs.registry_password }}
+        registry: ${{ steps.fetch-registry-credentials.outputs.registry_url }}
+        username: ${{ steps.fetch-registry-credentials.outputs.registry_username }}
+        password: ${{ steps.fetch-registry-credentials.outputs.registry_password }}
 
     - name: Build and push Docker image
       uses: docker/build-push-action@v7
@@ -85,5 +76,5 @@ runs:
         build-args: BASE_IMAGE=${{ inputs.base-image-name }}:${{ inputs.base-image-tag }}
         push: true
         tags: |
-          ${{ steps.fetch-registry-url.outputs.registry_url }}/${{ inputs.final-image-name }}:latest
-          ${{ steps.fetch-registry-url.outputs.registry_url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
+          ${{ steps.fetch-registry-credentials.outputs.registry_url }}/${{ inputs.final-image-name }}:latest
+          ${{ steps.fetch-registry-credentials.outputs.registry_url }}/${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
