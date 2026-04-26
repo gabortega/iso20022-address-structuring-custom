@@ -26,6 +26,7 @@ runs:
       shell: bash
       run: |
         echo "::add-mask::${{ inputs.resource-group }}"
+        echo "::add-mask::${{ inputs.key-vault-name }}"
         echo "::add-mask::${{ inputs.container-instance-name }}"
 
     - name: Deploy Bicep (only Container Instance)
