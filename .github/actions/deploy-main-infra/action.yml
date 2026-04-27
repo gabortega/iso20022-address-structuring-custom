@@ -10,6 +10,9 @@ inputs:
   registry-name:
     description: 'Name of the Azure Container Registry'
     required: true
+  managed-identity-name:
+    description: 'Name of the Managed Identity with pull assignment'
+    required: true
   key-vault-name:
     description: 'Name of the Key Vault'
     required: true
@@ -27,6 +30,7 @@ runs:
       run: |
         echo "::add-mask::${{ inputs.resource-group }}"
         echo "::add-mask::${{ inputs.registry-name }}"
+        echo "::add-mask::${{ inputs.managed-identity-name }}"
         echo "::add-mask::${{ inputs.key-vault-name }}"
         echo "::add-mask::${{ inputs.user-id }}"
         echo "::add-mask::${{ inputs.service-principal-id }}"
@@ -42,6 +46,7 @@ runs:
         parameters: >
           ./infra/environments/${{ inputs.environment }}.main.bicepparam
           acrName=${{ inputs.registry-name }}
+          managedIdentityName=${{ inputs.managed-identity-name }}
           keyVaultName=${{ inputs.key-vault-name }}
           userId=${{ inputs.user-id }}
           servicePrincipalId=${{ inputs.service-principal-id }}

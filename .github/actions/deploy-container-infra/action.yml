@@ -13,8 +13,11 @@ inputs:
   final-image-tag:
     description: 'Tag of the final image'
     required: true
-  key-vault-name:
-    description: 'Name of the Key Vault'
+  registry-name:
+    description: 'Name of the Azure Container Registry'
+    required: true
+  managed-identity-name:
+    description: 'Name of the Managed Identity with pull assignment'
     required: true
   container-instance-name:
     description: 'Name of the Azure Container Instance'
@@ -26,7 +29,8 @@ runs:
       shell: bash
       run: |
         echo "::add-mask::${{ inputs.resource-group }}"
-        echo "::add-mask::${{ inputs.key-vault-name }}"
+        echo "::add-mask::${{ inputs.registry-name }}"
+        echo "::add-mask::${{ inputs.managed-identity-name }}"
         echo "::add-mask::${{ inputs.container-instance-name }}"
 
     - name: Deploy Bicep (only Container Instance)
@@ -39,7 +43,8 @@ runs:
         template: ./infra/container.bicep
         parameters: >
           ./infra/environments/${{ inputs.environment }}.container.bicepparam
-          keyVaultName=${{ inputs.key-vault-name }}
+          acrName=${{ inputs.registry-name }}
+          managedIdentityName=${{ inputs.managed-identity-name }}
           containerInstanceName=${{ inputs.container-instance-name }}
           containerImage=${{ inputs.final-image-name }}:${{ inputs.final-image-tag }}
         failOnStdErr: 'true'

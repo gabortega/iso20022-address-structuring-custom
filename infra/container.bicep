@@ -11,10 +11,13 @@ param location string = resourceGroup().location
 
 @description('Environment tag')
 @allowed(['dev', 'staging', 'prod'])
-param environment string
+param environment string = 'dev'
 
-@description('Name of the Key Vault')
-param keyVaultName string = ''
+@description('Name of the Azure Container Registry')
+param acrName string = ''
+
+@description('Name of the Managed Identity with pull assignment')
+param managedIdentityName string = ''
 
 @description('Name of the Container Instance')
 param containerInstanceName string = ''
@@ -48,24 +51,18 @@ var tags = {
 }
 
 // ============================================================
-// Resources
+// Modules
 // ============================================================
-
-// Reference existing Key Vault
-resource keyVault 'Microsoft.KeyVault/vaults@2025-05-01' existing = {
-  name: keyVaultName
-}
 
 module containerGroup 'modules/containerDeployment.bicep' = {
   name: 'deployContainer'
   params: {
     location: location
+    acrName: acrName
+    managedIdentityName: managedIdentityName
     containerInstanceName: containerInstanceName
     containerImage: containerImage
     containerPort: containerPort
-    server: keyVault.getSecret('acr-login-server')
-    username: keyVault.getSecret('acr-username')
-    password: keyVault.getSecret('acr-password')
     pipelineMaxInstances: pipelineMaxInstances
     cpuCore: cpuCore
     memoryInGB: memoryInGB

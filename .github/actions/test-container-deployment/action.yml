@@ -42,4 +42,5 @@ runs:
       run: |
         export PYTHONPATH=$(pwd)
         python ./.github/actions/scripts/test_container_deployment.py \
-          --ip_address=${{ steps.fetch-container-instance-ip.outputs.container_instance_ip }}
+          --ip_address=${{ steps.fetch-container-instance-ip.outputs.container_instance_ip }} \
+          --port=8080

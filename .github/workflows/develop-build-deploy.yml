@@ -44,6 +44,7 @@ jobs:
           environment: ${{ vars.ENVIRONMENT }}
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           registry-name: ${{ secrets.REGISTRY_NAME }}
+          managed-identity-name: ${{ secrets.MANAGED_IDENTITY_NAME }}
           key-vault-name: ${{ secrets.KEY_VAULT_NAME }}
           user-id: ${{ secrets.USER_ID }}
           service-principal-id: ${{ secrets.SERVICE_PRINCIPAL_ID }}
@@ -158,7 +159,8 @@ jobs:
           resource-group: ${{ secrets.RESOURCE_GROUP }}
           final-image-name: ${{ env.FINAL_IMAGE_NAME }}
           final-image-tag: ${{ env.FINAL_IMAGE_TAG }}
-          key-vault-name: ${{ secrets.KEY_VAULT_NAME }}
+          registry-name: ${{ secrets.REGISTRY_NAME }}
+          managed-identity-name: ${{ secrets.MANAGED_IDENTITY_NAME }}
           container-instance-name: ${{ secrets.CONTAINER_INSTANCE_NAME }}
 
       - name: Logout of Azure

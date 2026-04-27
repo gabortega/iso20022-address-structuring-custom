@@ -11,10 +11,13 @@ param location string = resourceGroup().location
 
 @description('Environment tag')
 @allowed(['dev', 'staging', 'prod'])
-param environment string
+param environment string = 'dev'
 
 @description('Name of the Key Vault (3-24 chars, alphanumeric and hyphens)')
 param keyVaultName string = ''
+
+@description('Name of the Managed Identity with pull assignment')
+param managedIdentityName string = ''
 
 @allowed(['standard', 'premium'])
 param keyVaultSku string = 'standard'
@@ -52,7 +55,7 @@ var tags = {
 }
 
 // ============================================================
-// Resources
+// Modules
 // ============================================================
 
 module keyVault 'modules/keyVault.bicep' = {
@@ -73,6 +76,7 @@ module acr 'modules/acr.bicep' = {
   params: {
     location: location
     keyVaultName: keyVaultName
+    managedIdentityName: managedIdentityName
     acrName: acrName
     sku: acrSku
     tags: tags
