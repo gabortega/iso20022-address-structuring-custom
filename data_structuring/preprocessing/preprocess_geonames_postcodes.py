@@ -1,10 +1,10 @@
 import string
+import zlib
 from pathlib import Path
 from typing import Callable
 
 import orjson
 import polars as pl
-import zlib
 
 from data_structuring.components.data_provider.normalization import decode_and_clean_expr
 from data_structuring.config import DatabaseConfig
@@ -37,20 +37,14 @@ def filter_and_clean_dataframe(input_df: pl.LazyFrame) -> pl.LazyFrame:
             # Generate regex of each post code
             postal_regex=pl.col('postal_code_filtered').str.replace_many(CHAR_TO_REGEX))
         .with_columns(
-            # Obtain list of country codes per filtered post code
-            country_code_list=pl.col('country code').unique().implode().over(partition_by='postal_code_filtered'),
-            # Obtain list of place names per filtered post code
-            place_name_list=pl.col('place name').unique().implode().over(partition_by='postal_code_filtered'),
-            # Obtain list of decoded place names per filtered post code
-            place_name_filtered_list=(
-                pl.col('place_name_filtered').unique().implode().over(partition_by='postal_code_filtered')))
-        .with_columns(
-            # Concatenate lists of place names and iso codes
-            post_code_mapping=pl.col('country_code_list').list.unique().list.concat(['place_name_filtered_list']))
+            # Concatenate place name and iso code
+            post_code_mapping=pl.col('place_name_filtered').list.concat(['country code']))
         .group_by(
             # Keep only the first of each unique decoded postal code
-            by='postal_code_filtered')
-        .first()
+            'postal_code_filtered')
+        .agg(
+            pl.col("post_code_mapping").implode(),
+            pl.col("postal_regex").first())
         .select('postal_code_filtered', 'post_code_mapping', 'postal_regex')
     )
 
@@ -73,7 +67,7 @@ def preprocess_and_save(input_df: pl.LazyFrame,
         f.write(
             zlib.compress(
                 orjson.dumps(
-                    {k: v[0]
+                    {k: [{"possibility": vv[0], "origin": vv[1]} for vv in v[0]]
                      for k, v in df.select(
                         'postal_code_filtered', 'post_code_mapping'
                     ).rows_by_key(key=['postal_code_filtered'], unique=True).items()}),
@@ -147,7 +141,7 @@ if __name__ == "__main__":
                      has_header=False,
                      separator='\t',
                      infer_schema=False)
-         .filter(
+        .filter(
             # Remove the incomplete post codes lists
             ~pl.col('country code').is_in(['GB', 'CA', 'NL']))]
         + [pl.scan_csv(file_path,

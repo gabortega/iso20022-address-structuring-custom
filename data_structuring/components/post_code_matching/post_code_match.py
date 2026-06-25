@@ -49,7 +49,7 @@ def find_postcode_town_matches(postcodes_dict: dict, regex_list: List[str], text
                             start=match.start(),
                             end=match.end(),
                             matched=match.group(0),
-                            possibility=entry[0],
-                            origin=entry[1]
+                            possibility=entry["possibility"],
+                            origin=entry["origin"]
                         ))
     return PostcodeMatchResult(towns_matched)
