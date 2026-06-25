@@ -141,7 +141,7 @@ if __name__ == "__main__":
                      has_header=False,
                      separator='\t',
                      infer_schema=False)
-        .filter(
+         .filter(
             # Remove the incomplete post codes lists
             ~pl.col('country code').is_in(['GB', 'CA', 'NL']))]
         + [pl.scan_csv(file_path,
