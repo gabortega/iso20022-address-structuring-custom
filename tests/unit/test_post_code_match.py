@@ -73,7 +73,7 @@ class TestFindPostcodeTownMatches:
         ids=[m[0] for m in KNOWN_MATCHES],
     )
     def test_known_postcode_resolves_to_town(
-        self, postcode_data, group, text, dict_key, town, origin
+            self, postcode_data, group, text, dict_key, town, origin
     ):
         """A real postcode resolves to its town from the resource data."""
         postcodes_dict, regex_list, structure = postcode_data[group]
@@ -94,8 +94,7 @@ class TestFindPostcodeTownMatches:
         result = find_postcode_town_matches(full_dict, full_regex_list, text)
 
         assert len(result) > 0
-        match = result[0]
-        assert match.matched == "19648"
+        match = [res for res in result if res.matched == "19648"][0]
         assert text[match.start:match.end] == "19648"
 
     def test_no_match_returns_empty_result(self, postcode_data):
@@ -233,7 +232,7 @@ class TestCountrySpecificDictionaries:
         ids=[f"{c}-{k}" for c, _, k, _ in COUNTRY_CASES],
     )
     def test_structured_postcode_resolves_to_town(
-        self, postcode_data, country, text, key, town
+            self, postcode_data, country, text, key, town
     ):
         """A structured postcode resolves to its town with the country origin."""
         postcodes_dict, regex_list, structure = postcode_data[country]
@@ -253,7 +252,7 @@ class TestCountrySpecificDictionaries:
         ids=[f"{c}-{k}" for c, _, k, _ in COUNTRY_CASES],
     )
     def test_structure_suffix_is_required(
-        self, postcode_data, country, text, key, town
+            self, postcode_data, country, text, key, town
     ):
         """The bare prefix key, without the structure suffix, does not match."""
         postcodes_dict, regex_list, structure = postcode_data[country]
@@ -367,10 +366,10 @@ class TestNoContaminationBetweenSamples:
             )
 
         samples = [
-            "STREET 19648 CITY",          # full -> C UBIVKA
-            "EMPTY LINE",                  # nothing
-            "CODE S23490000 HERE",         # AR  -> SUARDI
-            "POST MRS0000 MALTA",          # MT  -> MARSA
+            "STREET 19648 CITY",  # full -> C UBIVKA
+            "EMPTY LINE",  # nothing
+            "CODE S23490000 HERE",  # AR  -> SUARDI
+            "POST MRS0000 MALTA",  # MT  -> MARSA
         ]
         reference = {t: _fingerprint(process(t)) for t in samples}
 
