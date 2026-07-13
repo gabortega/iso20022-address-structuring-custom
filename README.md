@@ -10,7 +10,7 @@ production environments or commercial applications.
 
 \##################################################################
 
-# ISO 20022 AI address structuring model
+# ISO 20022 AI Hybrid address structuring model
 
 The address structuring model, aims to assist the community with the transition from unstructured postal addresses to
 structured ISO 20022 CBPR+ format with field options for Town and Country. The model itself, although it does not
