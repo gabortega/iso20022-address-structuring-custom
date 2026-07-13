@@ -34,7 +34,7 @@ class CsvFileReader(BaseReader):
         self.suggested_country_column = suggested_country_column
         self.force_suggested_country_column = force_suggested_country_column
 
-    def read(self) -> Generator[AddressSample, None, None] | None:
+    def read(self) -> Generator[AddressSample, None, None]:
         """Stream values from a CSV column lazily.
 
         Yields AddressSample objects with optional suggested_country and
@@ -52,7 +52,7 @@ class CsvFileReader(BaseReader):
                 lazy=True,
                 engine="streaming"
             ):
-                return DataFrameReader(
+                yield from DataFrameReader(
                     dataframe=chunk,
                     data_column_name=self.data_column_name,
                     suggested_country_column=self.suggested_country_column,
